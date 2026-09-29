@@ -362,12 +362,34 @@ pm.test('versioning Enabled', function(){
         auth=s3auth(), tests=T_NO_SUCH_KEY))
 
     s3.append(req(
-        "1.14 EXPECTED FAILURE - object-lock read with object user",
+        "1.14 PUT object WITH object lock (IAM creds) — prime lock state",
+        "PUT", "{{s3_http}}/{{pm_lock_bucket}}/worm/prime-1.14.txt",
+        desc=("Writes a governance-locked object (+2h) to `{{pm_lock_bucket}}` "
+              "using IAM creds, so the bucket's lock state is provably active "
+              "before the next check. If this request fails with "
+              "`InvalidRequest`/NoSuchBucket, the bucket was not created "
+              "object-lock-enabled — rerun 0.5 after deleting the bucket."),
+        auth=s3auth("{{writer_access_key}}", "{{writer_secret_key}}"),
+        pre="pm.environment.set('prime_retain', new Date(Date.now()+2*3600e3).toISOString());",
+        headers=[
+            {"key": "x-amz-object-lock-mode", "value": "GOVERNANCE"},
+            {"key": "x-amz-object-lock-retain-until-date", "value": "{{prime_retain}}"},
+            {"key": "Content-Type", "value": "text/plain"}],
+        raw_body="locked object priming the bucket\n",
+        tests=T_200 + """
+pm.test('lock headers accepted by IAM user', function(){
+  pm.expect(pm.response.headers.get('x-amz-version-id')).to.not.be.empty;
+});"""))
+
+    s3.append(req(
+        "1.15 EXPECTED FAILURE - recheck object-lock read with object user",
         "GET", "{{s3_http}}/{{pm_lock_bucket}}?object-lock",
         desc=("ObjectScale behavior note: GetObjectLockConfiguration rejects "
               "legacy object users — expects `403 AccessDenied` with the "
-              "'Only IAM users are supported' message. IAM creds (request "
-              "3.x) succeed."),
+              "'Only IAM users are supported' message. IAM creds (folder 30) "
+              "succeed.\n\n**If this returns 200**, your `access_key`/"
+              "`secret_key` are IAM credentials — point them at the object "
+              "user's key (usually the username itself, e.g. `demo-s3user`)."),
         auth=s3auth(),
         tests="""
 pm.test('object user denied for lock ops', function(){
@@ -376,7 +398,20 @@ pm.test('object user denied for lock ops', function(){
 });"""))
 
     s3.append(req(
-        "1.15 DOCUMENTED GAP - bucket tagging unsupported",
+        "1.16 EXPECTED FAILURE - object user PUT to lock bucket",
+        "PUT", "{{s3_http}}/{{pm_lock_bucket}}/worm/object-user-attempt.txt",
+        desc=("Verified on this build: object users are refused ALL writes to "
+              "an object-lock-enabled bucket, not just lock ops — plain PUT "
+              "and lock-header PUT both return 403 AccessDenied."),
+        auth=s3auth(),
+        headers=[{"key": "x-amz-object-lock-mode", "value": "GOVERNANCE"},
+                 {"key": "x-amz-object-lock-retain-until-date", "value": "{{prime_retain}}"},
+                 {"key": "Content-Type", "value": "text/plain"}],
+        raw_body="must never be written\n",
+        tests=T_DENIED))
+
+    s3.append(req(
+        "1.17 DOCUMENTED GAP - bucket tagging unsupported",
         "PUT", "{{s3_http}}/{{pm_bucket}}?tagging",
         desc=("PutBucketTagging returns `501 NotImplemented` on this build — "
               "kept in the collection to demonstrate the compatibility gap "
@@ -793,27 +828,39 @@ pm.test('objects parsed into delete payload', function(){
         tests=T_200))
 
     cl.append(req(
-        "8.4 Delete lifecycle object + config",
+        "8.4 Abort incomplete MPU (if any) + list check",
+        "DELETE", "{{s3_http}}/{{pm_bucket}}/mp/big-part.bin?uploadId={{upload_id}}",
+        desc=("Aborts the multipart upload if it is still open. A completed "
+              "MPU returns `NoSuchUpload` (404) — harmless. ObjectScale can "
+              "keep a completed upload briefly visible in `?uploads`, which "
+              "otherwise blocks bucket deletion with `BucketNotEmpty`."),
+        auth=s3auth(), tests="""
+pm.test('aborted or nothing to abort', function(){
+  pm.expect(pm.response.code).to.be.oneOf([204,404]);
+});"""))
+
+    cl.append(req(
+        "8.5 Delete lifecycle object + config",
         "DELETE", "{{s3_http}}/{{pm_lifecycle_bucket}}/tmp/scratch.txt",
         auth=s3auth(), tests=T_STATUS_2XX))
 
     cl.append(req(
-        "8.5 Delete lifecycle configuration",
+        "8.6 Delete lifecycle configuration",
         "DELETE", "{{s3_http}}/{{pm_lifecycle_bucket}}?lifecycle",
         auth=s3auth(), tests=T_STATUS_2XX))
 
     cl.append(req(
-        "8.6 Delete bucket {{pm_bucket}}",
+        "8.7 Delete bucket {{pm_bucket}}",
         "DELETE", "{{s3_http}}/{{pm_bucket}}",
         auth=s3auth(), tests=T_STATUS_2XX))
 
     cl.append(req(
-        "8.7 Delete bucket {{pm_lifecycle_bucket}}",
+        "8.8 Delete bucket {{pm_lifecycle_bucket}}",
         "DELETE", "{{s3_http}}/{{pm_lifecycle_bucket}}",
         auth=s3auth(), tests=T_STATUS_2XX))
 
     cl.append(req(
-        "8.8 ⚠ BLOCKED-UNTIL-EXPIRY — delete {{pm_lock_bucket}}",
+        "8.9 ⚠ BLOCKED-UNTIL-EXPIRY — delete {{pm_lock_bucket}}",
         "DELETE", "{{s3_http}}/{{pm_lock_bucket}}",
         desc=("**Cannot succeed until the Object Lock retentions set in folder "
               "30 expire** (governance +2h, compliance +75m from run time) and "

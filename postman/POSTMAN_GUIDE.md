@@ -7,7 +7,7 @@ Feature status and limitations match `EVIDENCE_MATRIX.md` and `RUNBOOK.md`.
 
 | File | Contents |
 |---|---|
-| `ObjectScale-Demo.postman_collection.json` | 8 folders, 61 requests, ~87 assertions |
+| `ObjectScale-Demo.postman_collection.json` | 8 folders, 64 requests, ~91 assertions |
 | `ObjectScale-Lab.postman_environment.json` | Endpoints + variable slots. **No credentials.** |
 | `build_collection.py` | Regenerates both files (edit here, don't hand-edit JSON) |
 
@@ -64,14 +64,15 @@ Run folders top→down (or the whole collection — it's ordered):
 | Request | Correct result |
 |---|---|
 | 1.13 GET missing object | 404 NoSuchKey |
-| 1.14 lock read as object user | 403 "Only IAM users…" |
-| 1.15 bucket tagging | 501 NotImplemented (documented gap) |
+| 1.15 lock read as object user (recheck after 1.14 primes the bucket) | 403 "Only IAM users…" |
+| 1.16 object-user PUT to lock bucket | 403 AccessDenied |
+| 1.17 bucket tagging | 501 NotImplemented (documented gap) |
 | 2.4 reader PUT | 403 AccessDenied |
 | 2.6 delete protected/ | 403 AccessDenied (policy beats IAM) |
 | 3.5 delete retained version | 403 AccessDenied |
 | 3.7 shorten retention | 403 AccessDenied |
 | 3.9 compliance delete + bypass | 403 AccessDenied |
-| 8.8 delete lock bucket | 409 BucketNotEmpty until retention expires |
+| 8.9 delete lock bucket | 409 BucketNotEmpty until retention expires |
 
 ## Known timing notes
 
@@ -109,6 +110,11 @@ Folder 90 lists them — they need a shell/second site/cloud account:
 
 ## Verified run (lab)
 
-61/61 requests, 86/87 assertions green on a cold run; the only pending
-assertion is 4.4 which passes on re-check once the lifecycle engine evaluates
-(~2 min). Full log: `evidence/postman_run.txt`.
+64/64 requests, 90/91 assertions green on a cold run; the only pending
+assertion is 4.4 (lifecycle `Expiration` header — async engine, ~2 min,
+passes on re-check). Full log:
+`evidence/postman_run.txt`.
+
+**If 1.15 returns 200 instead of 403**: your `access_key`/`secret_key`
+environment values are IAM credentials, not the object user's — the object
+user's access key on ObjectScale is typically the username itself.
