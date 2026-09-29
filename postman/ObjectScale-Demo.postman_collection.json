@@ -1773,7 +1773,7 @@
           ]
         },
         {
-          "name": "2.5 EXPECTED DENIAL - delete protected/ (bucket policy)",
+          "name": "2.5 PUT object under protected/ (ALLOWED \u2014 setup for deny)",
           "request": {
             "method": "PUT",
             "header": [
@@ -1794,7 +1794,7 @@
               ],
               "query": []
             },
-            "description": "First stage: create the protected object (allowed).",
+            "description": "Setup stage \u2014 must SUCCEED. The bucket policy only denies `s3:DeleteObject` on `protected/*`, so writing here is allowed for everyone. The actual denial is exercised by the next request (2.6 DELETE).",
             "auth": {
               "type": "awsv4",
               "awsv4": [
@@ -1837,7 +1837,7 @@
           ]
         },
         {
-          "name": "2.6 EXPECTED DENIAL - delete protected/ enforced",
+          "name": "2.6 EXPECTED DENIAL - DELETE protected/ (bucket policy)",
           "request": {
             "method": "DELETE",
             "header": [],

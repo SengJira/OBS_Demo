@@ -471,16 +471,19 @@ pm.test('policy shows DenyDeleteProtected', function(){
         tests=T_DENIED))
 
     iam.append(req(
-        "2.5 EXPECTED DENIAL - delete protected/ (bucket policy)",
+        "2.5 PUT object under protected/ (ALLOWED — setup for deny)",
         "PUT", "{{s3_http}}/{{pm_bucket}}/protected/report.txt",
-        desc="First stage: create the protected object (allowed).",
+        desc=("Setup stage — must SUCCEED. The bucket policy only denies "
+              "`s3:DeleteObject` on `protected/*`, so writing here is allowed "
+              "for everyone. The actual denial is exercised by the next "
+              "request (2.6 DELETE)."),
         auth=s3auth(),
         headers=[{"key": "Content-Type", "value": "text/plain"}],
         raw_body="protected content\n",
         tests=T_200))
 
     iam.append(req(
-        "2.6 EXPECTED DENIAL - delete protected/ enforced",
+        "2.6 EXPECTED DENIAL - DELETE protected/ (bucket policy)",
         "DELETE", "{{s3_http}}/{{pm_bucket}}/protected/report.txt",
         desc=("Bucket-policy `Deny` overrides the writer's IAM `Allow` — "
               "deletion of `protected/*` must return 403 AccessDenied even "

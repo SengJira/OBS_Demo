@@ -4,48 +4,48 @@ Dell ObjectScale 4.3 — Presales Demo
 
 ❏ 00 — Setup (run once)
 ↳ 0.1 Get mgmt token (X-SDS-AUTH-TOKEN)
-  GET https://192.168.1.31:4443/login [200 OK, 538B, 92ms]
+  GET https://192.168.1.31:4443/login [200 OK, 538B, 104ms]
   ✓  status 200
   ✓  token issued
 
 ↳ 0.2 Portal session - start encrypt session
-  POST https://192.168.1.31/startEncryptSession [200 OK, 1.09kB, 12ms]
+  POST https://192.168.1.31/startEncryptSession [200 OK, 1.09kB, 14ms]
   ✓  status 200
 
 ↳ 0.3 Portal session - login (AES-credential flow)
-  GET https://192.168.1.31/login [200 OK, 1.78kB, 80ms]
+  GET https://192.168.1.31/login [200 OK, 1.78kB, 73ms]
   ✓  status 200
   ✓  login success
 
 ↳ 0.4 Create bucket {{pm_bucket}}
-  PUT http://192.168.1.31:9020/demo-pm-s3 [200 OK, 382B, 60ms]
+  PUT http://192.168.1.31:9020/demo-pm-s3 [200 OK, 382B, 40ms]
   ✓  created or already ours
 
 ↳ 0.5 Create object-lock bucket {{pm_lock_bucket}} (IAM creds)
-  PUT http://192.168.1.31:9020/demo-pm-lock [200 OK, 385B, 36ms]
+  PUT http://192.168.1.31:9020/demo-pm-lock [200 OK, 385B, 34ms]
   ✓  created or already ours
 
 ↳ 0.6 Create lifecycle bucket {{pm_lifecycle_bucket}}
-  PUT http://192.168.1.31:9020/demo-pm-lifecycle [200 OK, 390B, 45ms]
+  PUT http://192.168.1.31:9020/demo-pm-lifecycle [200 OK, 389B, 27ms]
   ✓  created or already ours
 
 ↳ 0.7 Grant demo-reader read-only on {{pm_bucket}} (IAM policy)
-  POST https://192.168.1.31/iam [200 OK, 1.17kB, 67ms]
+  POST https://192.168.1.31/iam [200 OK, 1.17kB, 64ms]
   ✓  iam policy applied
 
 ❏ 10 — S3 API compatibility
 ↳ 1.1 PUT object (metadata + tags)
-  PUT http://192.168.1.31:9020/demo-pm-s3/doc/postman-hello.txt [200 OK, 505B, 17ms]
+  PUT http://192.168.1.31:9020/demo-pm-s3/doc/postman-hello.txt [200 OK, 538B, 19ms]
   ✓  status 200
   ✓  ETag returned
 
 ↳ 1.2 GET object
-  GET http://192.168.1.31:9020/demo-pm-s3/doc/postman-hello.txt [200 OK, 572B, 11ms]
+  GET http://192.168.1.31:9020/demo-pm-s3/doc/postman-hello.txt [200 OK, 604B, 11ms]
   ✓  status 200
   ✓  body round-trip
 
 ↳ 1.3 HEAD object
-  HEAD http://192.168.1.31:9020/demo-pm-s3/doc/postman-hello.txt [200 OK, 500B, 6ms]
+  HEAD http://192.168.1.31:9020/demo-pm-s3/doc/postman-hello.txt [200 OK, 533B, 9ms]
   ✓  status 200
   ✓  custom metadata present
 
@@ -55,39 +55,39 @@ Dell ObjectScale 4.3 — Presales Demo
   ✓  key listed
 
 ↳ 1.5 GET object tagging
-  GET http://192.168.1.31:9020/demo-pm-s3/doc/postman-hello.txt?tagging= [200 OK, 625B, 8ms]
+  GET http://192.168.1.31:9020/demo-pm-s3/doc/postman-hello.txt?tagging= [200 OK, 625B, 9ms]
   ✓  status 200
   ✓  tag env=demo present
 
 ↳ 1.6 Multipart upload - create
-  POST http://192.168.1.31:9020/demo-pm-s3/mp/big-part.bin?uploads= [200 OK, 631B, 25ms]
+  POST http://192.168.1.31:9020/demo-pm-s3/mp/big-part.bin?uploads= [200 OK, 631B, 27ms]
   ✓  status 200
   ✓  uploadId returned
 
 ↳ 1.7 Multipart upload - upload part 1
-  PUT http://192.168.1.31:9020/demo-pm-s3/mp/big-part.bin?partNumber=1&uploadId=AQAAAaDr2YOM5I5rJdi7QV-loxDTZVhjdFVaycA [200 OK, 402B, 33ms]
+  PUT http://192.168.1.31:9020/demo-pm-s3/mp/big-part.bin?partNumber=1&uploadId=AQAAAaDr_CB75I5rJdi7QV-loxDTZVhjdFhVWok [200 OK, 402B, 32ms]
   ✓  status 200
 
 ↳ 1.8 Multipart upload - upload part 2
-  PUT http://192.168.1.31:9020/demo-pm-s3/mp/big-part.bin?partNumber=2&uploadId=AQAAAaDr2YOM5I5rJdi7QV-loxDTZVhjdFVaycA [200 OK, 402B, 35ms]
+  PUT http://192.168.1.31:9020/demo-pm-s3/mp/big-part.bin?partNumber=2&uploadId=AQAAAaDr_CB75I5rJdi7QV-loxDTZVhjdFhVWok [200 OK, 402B, 30ms]
   ✓  status 200
 
 ↳ 1.9 Multipart upload - complete
-  POST http://192.168.1.31:9020/demo-pm-s3/mp/big-part.bin?uploadId=AQAAAaDr2YOM5I5rJdi7QV-loxDTZVhjdFVaycA [200 OK, 777B, 29ms]
+  POST http://192.168.1.31:9020/demo-pm-s3/mp/big-part.bin?uploadId=AQAAAaDr_CB75I5rJdi7QV-loxDTZVhjdFhVWok [200 OK, 810B, 28ms]
   ✓  status 200
   ✓  multipart ETag formed
 
 ↳ 1.10 Presigned GET (SigV2 URL generated in pre-request)
-  GET http://192.168.1.31:9020/demo-pm-s3/doc/postman-hello.txt?AWSAccessKeyId=<redacted>&Expires=1790663597&Signature=<redacted> [200 OK, 572B, 9ms]
+  GET http://192.168.1.31:9020/demo-pm-s3/doc/postman-hello.txt?AWSAccessKeyId=<redacted>&Expires=1790665865&Signature=<redacted> [200 OK, 605B, 14ms]
   ✓  status 200
   ✓  presigned body ok
 
 ↳ 1.11 Bucket versioning - enable
-  PUT http://192.168.1.31:9020/demo-pm-s3?versioning= [200 OK, 360B, 32ms]
+  PUT http://192.168.1.31:9020/demo-pm-s3?versioning= [200 OK, 360B, 25ms]
   ✓  status 200
 
 ↳ 1.12 Bucket versioning - read back
-  GET http://192.168.1.31:9020/demo-pm-s3?versioning= [200 OK, 571B, 8ms]
+  GET http://192.168.1.31:9020/demo-pm-s3?versioning= [200 OK, 571B, 6ms]
   ✓  status 200
   ✓  versioning Enabled
 
@@ -96,12 +96,12 @@ Dell ObjectScale 4.3 — Presales Demo
   ✓  NoSuchKey (expected miss)
 
 ↳ 1.14 PUT object WITH object lock (IAM creds) — prime lock state
-  PUT http://192.168.1.31:9020/demo-pm-lock/worm/prime-1.14.txt [200 OK, 499B, 18ms]
+  PUT http://192.168.1.31:9020/demo-pm-lock/worm/prime-1.14.txt [200 OK, 499B, 14ms]
   ✓  status 200
   ✓  lock headers accepted by IAM user
 
 ↳ 1.15 EXPECTED FAILURE - recheck object-lock read with object user
-  GET http://192.168.1.31:9020/demo-pm-lock?object-lock= [403 Forbidden, 453B, 11ms]
+  GET http://192.168.1.31:9020/demo-pm-lock?object-lock= [403 Forbidden, 453B, 6ms]
   ✓  object user denied for lock ops
 
 ↳ 1.16 EXPECTED FAILURE - object user PUT to lock bucket
@@ -109,12 +109,12 @@ Dell ObjectScale 4.3 — Presales Demo
   ✓  AccessDenied (expected denial)
 
 ↳ 1.17 DOCUMENTED GAP - bucket tagging unsupported
-  PUT http://192.168.1.31:9020/demo-pm-s3?tagging= [501 Not Implemented, 446B, 3ms]
+  PUT http://192.168.1.31:9020/demo-pm-s3?tagging= [501 Not Implemented, 446B, 4ms]
   ✓  bucket tagging NotImplemented (expected gap)
 
 ❏ 20 — IAM & bucket policy
 ↳ 2.1 PUT bucket policy (deny delete on protected/*)
-  PUT http://192.168.1.31:9020/demo-pm-s3?policy= [204 No Content, 349B, 26ms]
+  PUT http://192.168.1.31:9020/demo-pm-s3?policy= [204 No Content, 349B, 24ms]
   ✓  status 2xx
 
 ↳ 2.2 GET bucket policy
@@ -123,18 +123,18 @@ Dell ObjectScale 4.3 — Presales Demo
   ✓  policy shows DenyDeleteProtected
 
 ↳ 2.3 IAM allow - demo-reader GET object
-  GET http://192.168.1.31:9020/demo-pm-s3/doc/postman-hello.txt [200 OK, 548B, 15ms]
+  GET http://192.168.1.31:9020/demo-pm-s3/doc/postman-hello.txt [200 OK, 581B, 16ms]
   ✓  status 200
 
 ↳ 2.4 EXPECTED DENIAL - demo-reader PUT
   PUT http://192.168.1.31:9020/demo-pm-s3/data/should-fail.txt [403 Forbidden, 537B, 4ms]
   ✓  AccessDenied (expected denial)
 
-↳ 2.5 EXPECTED DENIAL - delete protected/ (bucket policy)
-  PUT http://192.168.1.31:9020/demo-pm-s3/protected/report.txt [200 OK, 499B, 13ms]
+↳ 2.5 PUT object under protected/ (ALLOWED — setup for deny)
+  PUT http://192.168.1.31:9020/demo-pm-s3/protected/report.txt [200 OK, 499B, 14ms]
   ✓  status 200
 
-↳ 2.6 EXPECTED DENIAL - delete protected/ enforced
+↳ 2.6 EXPECTED DENIAL - DELETE protected/ (bucket policy)
   DELETE http://192.168.1.31:9020/demo-pm-s3/protected/report.txt [403 Forbidden, 456B, 7ms]
   ✓  AccessDenied (expected denial)
 
@@ -145,29 +145,29 @@ Dell ObjectScale 4.3 — Presales Demo
   ✓  object lock enabled
 
 ↳ 3.2 PUT object with GOVERNANCE retention (+2h)
-  PUT http://192.168.1.31:9020/demo-pm-lock/worm/gov-record.txt [200 OK, 499B, 26ms]
+  PUT http://192.168.1.31:9020/demo-pm-lock/worm/gov-record.txt [200 OK, 499B, 14ms]
   ✓  status 200
   ✓  version id returned
 
 ↳ 3.3 GET object retention
-  GET http://192.168.1.31:9020/demo-pm-lock/worm/gov-record.txt?retention=&versionId=1790663296543 [200 OK, 601B, 9ms]
+  GET http://192.168.1.31:9020/demo-pm-lock/worm/gov-record.txt?retention=&versionId=1790665564961 [200 OK, 601B, 10ms]
   ✓  status 200
   ✓  governance retention stored
 
 ↳ 3.4 Plain DELETE -> delete marker only (allowed)
-  DELETE http://192.168.1.31:9020/demo-pm-lock/worm/gov-record.txt [204 No Content, 459B, 16ms]
+  DELETE http://192.168.1.31:9020/demo-pm-lock/worm/gov-record.txt [204 No Content, 459B, 15ms]
   ✓  status 2xx
 
 ↳ 3.5 EXPECTED DENIAL - delete retained VERSION
-  DELETE http://192.168.1.31:9020/demo-pm-lock/worm/gov-record.txt?versionId=1790663296543 [403 Forbidden, 457B, 8ms]
+  DELETE http://192.168.1.31:9020/demo-pm-lock/worm/gov-record.txt?versionId=1790665564961 [403 Forbidden, 457B, 7ms]
   ✓  AccessDenied (expected denial)
 
 ↳ 3.6 GET retained version still readable
-  GET http://192.168.1.31:9020/demo-pm-lock/worm/gov-record.txt?versionId=1790663296543 [200 OK, 622B, 9ms]
+  GET http://192.168.1.31:9020/demo-pm-lock/worm/gov-record.txt?versionId=1790665564961 [200 OK, 622B, 10ms]
   ✓  status 200
 
 ↳ 3.7 EXPECTED DENIAL - shorten retention
-  PUT http://192.168.1.31:9020/demo-pm-lock/worm/gov-record.txt?retention=&versionId=1790663296543 [403 Forbidden, 404B, 9ms]
+  PUT http://192.168.1.31:9020/demo-pm-lock/worm/gov-record.txt?retention=&versionId=1790665564961 [403 Forbidden, 404B, 9ms]
   ✓  AccessDenied (expected denial)
 
 ↳ 3.8 PUT object with COMPLIANCE retention (+75m)
@@ -175,12 +175,12 @@ Dell ObjectScale 4.3 — Presales Demo
   ✓  status 200
 
 ↳ 3.9 EXPECTED DENIAL - compliance delete w/ bypass flag
-  DELETE http://192.168.1.31:9020/demo-pm-lock/worm/compliance-record.txt?versionId=1790663296724&x-amz-bypass-governance-retention=true [403 Forbidden, 464B, 8ms]
+  DELETE http://192.168.1.31:9020/demo-pm-lock/worm/compliance-record.txt?versionId=1790665565136&x-amz-bypass-governance-retention=true [403 Forbidden, 464B, 8ms]
   ✓  AccessDenied (expected denial)
 
 ❏ 40 — Lifecycle
 ↳ 4.0 Ensure bucket {{pm_lifecycle_bucket}} exists
-  PUT http://192.168.1.31:9020/demo-pm-lifecycle [200 OK, 390B, 29ms]
+  PUT http://192.168.1.31:9020/demo-pm-lifecycle [200 OK, 390B, 32ms]
   ✓  created or already ours
 
 ↳ 4.1 PUT lifecycle rule (expire tmp/ in 1 day)
@@ -197,13 +197,13 @@ Dell ObjectScale 4.3 — Presales Demo
   ✓  status 200
 
 ↳ 4.4 HEAD object - computed Expiration header
-  HEAD http://192.168.1.31:9020/demo-pm-lifecycle/tmp/scratch.txt [200 OK, 555B, 6ms]
+  HEAD http://192.168.1.31:9020/demo-pm-lifecycle/tmp/scratch.txt [200 OK, 555B, 7ms]
   ✓  status 200
   1. Expiration header computed by engine
 
 ❏ 50 — Management & monitoring APIs
 ↳ 5.1 List namespaces
-  GET https://192.168.1.31:4443/object/namespaces [200 OK, 1.26kB, 20ms]
+  GET https://192.168.1.31:4443/object/namespaces [200 OK, 1.26kB, 22ms]
   ✓  status 200
   ✓  ns1 present
 
@@ -212,64 +212,64 @@ Dell ObjectScale 4.3 — Presales Demo
   ✓  status 200
 
 ↳ 5.3 License features
-  GET https://192.168.1.31:4443/license [200 OK, 10.25kB, 15ms]
+  GET https://192.168.1.31:4443/license [200 OK, 10.25kB, 18ms]
   ✓  status 200
   ✓  ViPR licensed
 
 ↳ 5.4 Cluster capacity (dashboard API)
-  GET https://192.168.1.31:4443/dashboard/zones/localzone [200 OK, 31.12kB, 395ms]
+  GET https://192.168.1.31:4443/dashboard/zones/localzone [200 OK, 31.18kB, 415ms]
   ✓  status 200
   ✓  capacity data present
 
 ↳ 5.5 Nodes list + capture first node
-  GET https://192.168.1.31:4443/dashboard/zones/localzone/nodes [200 OK, 58.23kB, 245ms]
+  GET https://192.168.1.31:4443/dashboard/zones/localzone/nodes [200 OK, 58.35kB, 251ms]
   ✓  status 200
 
 ↳ 5.6 Node health detail
-  GET https://192.168.1.31:4443/dashboard/nodes/d6029d4c-3ebb-11f1-8c6f-0050563cefd1 [200 OK, 48.63kB, 234ms]
+  GET https://192.168.1.31:4443/dashboard/nodes/d6029d4c-3ebb-11f1-8c6f-0050563cefd1 [200 OK, 48.73kB, 201ms]
   ✓  status 200
   ✓  node health = Good
 
 ↳ 5.7 VDCs (sites) — portal API
-  GET https://192.168.1.31/vdcs [200 OK, 1.61kB, 51ms]
+  GET https://192.168.1.31/vdcs [200 OK, 1.61kB, 54ms]
   ✓  status 200
   ✓  single site (expected in this lab)
 
 ↳ 5.8 Replication groups — portal API
-  GET https://192.168.1.31/replicationgroups [200 OK, 1.69kB, 66ms]
+  GET https://192.168.1.31/replicationgroups [200 OK, 1.69kB, 59ms]
   ✓  status 200
   ✓  rg1 spans 1 zone
 
 ↳ 5.9 Alert policies — portal API
-  GET https://192.168.1.31/alertpolicy/list [200 OK, 12.46kB, 144ms]
+  GET https://192.168.1.31/alertpolicy/list [200 OK, 12.46kB, 142ms]
   ✓  status 200
   ✓  system alert policies enabled
 
 ↳ 5.10 SNMP targets — portal API
-  GET https://192.168.1.31/snmp [200 OK, 1.05kB, 51ms]
+  GET https://192.168.1.31/snmp [200 OK, 1.05kB, 52ms]
   ✓  status 200
 
 ↳ 5.11 IAM ListUsers — portal /iam proxy
-  POST https://192.168.1.31/iam [200 OK, 1.56kB, 47ms]
+  POST https://192.168.1.31/iam [200 OK, 1.56kB, 48ms]
   ✓  status 200
   ✓  demo-reader listed
 
 ❏ 80 — Cleanup
 ↳ 8.1 Delete bucket policy on {{pm_bucket}}
-  DELETE http://192.168.1.31:9020/demo-pm-s3?policy= [204 No Content, 349B, 34ms]
+  DELETE http://192.168.1.31:9020/demo-pm-s3?policy= [204 No Content, 349B, 26ms]
   ✓  status 2xx
 
 ↳ 8.2 List object versions (build delete payload)
-  GET http://192.168.1.31:9020/demo-pm-s3?versions= [200 OK, 1.68kB, 13ms]
+  GET http://192.168.1.31:9020/demo-pm-s3?versions= [200 OK, 2.7kB, 14ms]
   ✓  status 200
   ✓  objects parsed into delete payload
 
 ↳ 8.3 Batch-delete all versions + markers
-  POST http://192.168.1.31:9020/demo-pm-s3?delete= [200 OK, 761B, 24ms]
+  POST http://192.168.1.31:9020/demo-pm-s3?delete= [200 OK, 1.03kB, 27ms]
   ✓  status 200
 
 ↳ 8.4 Abort incomplete MPU (if any) + list check
-  DELETE http://192.168.1.31:9020/demo-pm-s3/mp/big-part.bin?uploadId=AQAAAaDr2YOM5I5rJdi7QV-loxDTZVhjdFVaycA [404 Not Found, 721B, 19ms]
+  DELETE http://192.168.1.31:9020/demo-pm-s3/mp/big-part.bin?uploadId=AQAAAaDr_CB75I5rJdi7QV-loxDTZVhjdFhVWok [404 Not Found, 721B, 16ms]
   ✓  aborted or nothing to abort
 
 ↳ 8.5 Delete lifecycle object + config
@@ -277,19 +277,19 @@ Dell ObjectScale 4.3 — Presales Demo
   ✓  status 2xx
 
 ↳ 8.6 Delete lifecycle configuration
-  DELETE http://192.168.1.31:9020/demo-pm-lifecycle?lifecycle= [204 No Content, 349B, 30ms]
+  DELETE http://192.168.1.31:9020/demo-pm-lifecycle?lifecycle= [204 No Content, 349B, 28ms]
   ✓  status 2xx
 
 ↳ 8.7 Delete bucket {{pm_bucket}}
-  DELETE http://192.168.1.31:9020/demo-pm-s3 [204 No Content, 318B, 77ms]
+  DELETE http://192.168.1.31:9020/demo-pm-s3 [204 No Content, 318B, 92ms]
   ✓  status 2xx
 
 ↳ 8.8 Delete bucket {{pm_lifecycle_bucket}}
-  DELETE http://192.168.1.31:9020/demo-pm-lifecycle [204 No Content, 325B, 83ms]
+  DELETE http://192.168.1.31:9020/demo-pm-lifecycle [204 No Content, 325B, 84ms]
   ✓  status 2xx
 
 ↳ 8.9 ⚠ BLOCKED-UNTIL-EXPIRY — delete {{pm_lock_bucket}}
-  DELETE http://192.168.1.31:9020/demo-pm-lock [409 Conflict, 469B, 48ms]
+  DELETE http://192.168.1.31:9020/demo-pm-lock [409 Conflict, 469B, 69ms]
   ✓  bucket removed or correctly refused
 
 ┌─────────────────────────┬───────────────────┬──────────────────┐
@@ -305,11 +305,11 @@ Dell ObjectScale 4.3 — Presales Demo
 ├─────────────────────────┼───────────────────┼──────────────────┤
 │              assertions │                91 │                1 │
 ├─────────────────────────┴───────────────────┴──────────────────┤
-│ total run duration: 3.9s                                       │
+│ total run duration: 3.8s                                       │
 ├────────────────────────────────────────────────────────────────┤
-│ total data received: 183.5kB (approx)                          │
+│ total data received: 185.07kB (approx)                         │
 ├────────────────────────────────────────────────────────────────┤
-│ average response time: 40ms [min: 3ms, max: 395ms, s.d.: 63ms] │
+│ average response time: 39ms [min: 4ms, max: 415ms, s.d.: 64ms] │
 └────────────────────────────────────────────────────────────────┘
 
   #  failure         detail                                                                 
