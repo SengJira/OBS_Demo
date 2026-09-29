@@ -49,6 +49,16 @@ verifiable but effect pending; **DOC** = documented walkthrough only;
   (`POST /startEncryptSession` + AES-encrypted `Authorization: ECS …`).
 - `http(s)://192.168.1.31:9020/9021` — S3 data path.
 
+## Postman path
+
+`postman/` contains an importable collection + environment covering scenes
+1,3,4,5,6 and the management/monitoring APIs (folder 50). Verified with
+Newman 6.2.2: **61/61 requests executed, 86/87 assertions passed** on a cold
+run — the single pending assertion is the lifecycle `Expiration` header
+(async engine, ~2 min; passes on re-check, verified). Scene 2 (NFS), scene 7
+(multisite) and scene 9 (copy-to-cloud) are inherently outside Postman's
+scope — see folder 90 notes and `postman/POSTMAN_GUIDE.md`.
+
 ## Credentials handling
 
 All credentials live in `~/.config/obs-demo/env` (0600, outside repo).

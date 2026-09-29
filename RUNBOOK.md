@@ -141,6 +141,14 @@ copy of bucket objects to external S3 (AWS or another ObjectScale), hourly
 scan, tag filters, detailed log bucket, copies-not-deletes semantics.
 No cloud destination authorized in this lab → procedure + BOM only.
 
+## Alternative: Postman
+
+The same S3/IAM/Object-Lock/lifecycle/monitoring demo can be presented from
+Postman — import `postman/ObjectScale-Demo.postman_collection.json` and the
+environment, fill secrets, run folders 00→80 in order. NFS, multisite and
+copy-to-cloud remain CLI/portal scenes (folder 90 links them).
+See `postman/POSTMAN_GUIDE.md` for the mapping and timing notes.
+
 ## Close
 
 *"Everything you saw ran on a single lab node today — same code path as the

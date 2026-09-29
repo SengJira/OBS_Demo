@@ -11,6 +11,7 @@ setup.sh        idempotent resource creation, --dry-run supported
 cleanup.sh      removes only demo-* resources, --dry-run supported
 scenes/         one script per demo scene (write evidence to evidence/)
 monitor/        monitoring collector -> renders evidence/monitoring_dashboard.md
+postman/        importable Postman collection + environment (second demo path)
 samples/        demo payload files
 evidence/       sanitized captured output from live runs
 docs/           runbook support docs (walkthroughs, plans, BOM)
@@ -35,6 +36,14 @@ monitor/collect.sh          # render monitoring dashboard
 ./cleanup.sh --dry-run      # preview teardown
 ./cleanup.sh                # remove demo-* resources
 ```
+
+## Postman path
+
+Import `postman/ObjectScale-Demo.postman_collection.json` +
+`postman/ObjectScale-Lab.postman_environment.json`, fill the secret variables,
+run folders top→down. SigV4 is pre-configured (`us-east-1`/`s3`/path-style);
+portal auth is automated (0.1–0.3). See `postman/POSTMAN_GUIDE.md` —
+61 requests, verified against this lab (`evidence/postman_run.txt`).
 
 ## Important quirks discovered on this build (4.3.0.0.142978)
 

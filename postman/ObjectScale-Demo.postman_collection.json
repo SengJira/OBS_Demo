@@ -1,0 +1,3708 @@
+{
+  "info": {
+    "name": "Dell ObjectScale 4.3 \u2014 Presales Demo",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Repeatable ObjectScale demo. S3 requests use AWS Signature V4 (region `us-east-1`, service `s3`, path-style URLs \u2014 verified against this install). Management calls use the cached X-SDS-AUTH-TOKEN; portal calls use the session established in setup step 0.2/0.3.\n\nRun folders in order. See RUNBOOK.md and EVIDENCE_MATRIX.md for status and limitations \u2014 status labels here match them exactly."
+  },
+  "item": [
+    {
+      "name": "00 \u2014 Setup (run once)",
+      "item": [
+        {
+          "name": "0.1 Get mgmt token (X-SDS-AUTH-TOKEN)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{mgmt_url}}/login",
+              "host": [
+                "{{mgmt_url}}"
+              ],
+              "path": [
+                "login"
+              ],
+              "query": []
+            },
+            "description": "Management REST API login (basic auth). Stores the returned `X-SDS-AUTH-TOKEN` header into `{{mgmt_token}}` for all management/monitoring requests.\n\n**Token hygiene**: ObjectScale caps tokens per user \u2014 reuse this cached token; do not re-login per request.",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{mgmt_user}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{mgmt_password}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "var t = pm.response.headers.get('X-SDS-AUTH-TOKEN');",
+                  "pm.test('token issued', function(){ pm.expect(t).to.not.be.empty; });",
+                  "if (t) pm.environment.set('mgmt_token', t);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0.2 Portal session - start encrypt session",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{portal_url}}/startEncryptSession",
+              "host": [
+                "{{portal_url}}"
+              ],
+              "path": [
+                "startEncryptSession"
+              ],
+              "query": []
+            },
+            "description": "Step 1 of the portal login handshake: returns a one-time session key used to AES-encrypt credentials in the next request (mirrors the UI login). No secrets stored \u2014 the encryption happens in the pre-request script of step 0.3."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.environment.set('ui_session_key', pm.response.text());",
+                  "var c = pm.cookies.get('ECSUI_SESSION');",
+                  "if (c) pm.environment.set('ui_session_cookie', c);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0.3 Portal session - login (AES-credential flow)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "ECS {{ecs_b64auth}}"
+              },
+              {
+                "key": "Cookie",
+                "value": "ECSUI_SESSION={{ui_session_cookie}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{portal_url}}/login",
+              "host": [
+                "{{portal_url}}"
+              ],
+              "path": [
+                "login"
+              ],
+              "query": []
+            },
+            "description": "Step 2: sends `Authorization: ECS <base64>` where the value is CryptoJS AES.encrypt('user:pass', sessionKey) \u2014 identical to the ObjectScale UI login. Captures `ECSAuthToken` + `XSRF-TOKEN` cookies into `{{ui_token}}`/`{{xsrf_token}}` for portal-API requests (IAM, VDCs, exports, copy policy)."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var CJS = require('crypto-js');",
+                  "var k = pm.environment.get('ui_session_key');",
+                  "var creds = pm.environment.get('mgmt_user') + ':' + pm.environment.get('mgmt_password');",
+                  "pm.environment.set('ecs_b64auth', CJS.AES.encrypt(creds, k).toString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "var j = pm.response.json();",
+                  "pm.test('login success', function(){ pm.expect(j.isSuccess).to.be.true; });",
+                  "var xs = pm.cookies.get('XSRF-TOKEN');",
+                  "if (j.data && j.data.authToken) pm.environment.set('ui_token', j.data.authToken);",
+                  "if (xs) pm.environment.set('xsrf_token', xs);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0.4 Create bucket {{pm_bucket}}",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}"
+              ],
+              "query": []
+            },
+            "description": "Create the main demo bucket via S3 `PUT Bucket` (SigV4). Idempotent.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('created or already ours', function(){",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,409]);",
+                  "  if (pm.response.code===409) pm.expect(pm.response.text()).to.include('BucketAlreadyOwnedByYou');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0.5 Create object-lock bucket {{pm_lock_bucket}} (IAM creds)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-amz-bucket-object-lock-enabled",
+                "value": "true"
+              }
+            ],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lock_bucket}}",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lock_bucket}}"
+              ],
+              "query": []
+            },
+            "description": "Create a bucket with Object Lock enabled. **ObjectScale quirk (verified on 4.3.0): object-lock operations require IAM user credentials** \u2014 object users get `AccessDenied: Only IAM users are supported with object lock enabled buckets`. This request signs with `writer_access_key`/`writer_secret_key` and sends `x-amz-bucket-object-lock-enabled: true`; versioning is enabled automatically and cannot be suspended afterward.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{writer_access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{writer_secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('created or already ours', function(){",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,409]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0.6 Create lifecycle bucket {{pm_lifecycle_bucket}}",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lifecycle_bucket}}",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lifecycle_bucket}}"
+              ],
+              "query": []
+            },
+            "description": "Disposable bucket used only for the lifecycle scene. Idempotent.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('created or already ours', function(){",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,409]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0.7 Grant demo-reader read-only on {{pm_bucket}} (IAM policy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-SDS-AUTH-TOKEN",
+                "value": "{{ui_token}}"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf_token}}"
+              },
+              {
+                "key": "Cookie",
+                "value": "XSRF-TOKEN={{xsrf_token}}; ECSAuthToken={{ui_token}}"
+              },
+              {
+                "key": "x-emc-namespace",
+                "value": "{{namespace}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "url": {
+              "raw": "{{portal_url}}/iam",
+              "host": [
+                "{{portal_url}}"
+              ],
+              "path": [
+                "iam"
+              ],
+              "query": []
+            },
+            "description": "IAM `PutUserPolicy` via the portal `/iam` proxy (needs the session from step 0.3). Grants `demo-reader` `s3:GetObject` + `s3:ListBucket` on `{{pm_bucket}}` \u2014 the least-privilege identity used by the allow/deny tests.",
+            "body": {
+              "mode": "raw",
+              "raw": "Action=PutUserPolicy&UserName=demo-reader&PolicyName=demo-pm-read&Namespace={{namespace}}&PolicyDocument=%7B%22Version%22%3A%222012-10-17%22%2C%22Statement%22%3A%5B%7B%22Effect%22%3A%22Allow%22%2C%22Action%22%3A%5B%22s3%3AGetObject%22%2C%22s3%3AListBucket%22%5D%2C%22Resource%22%3A%5B%22arn%3Aaws%3As3%3A%3A%3Ademo-pm-s3%22%2C%22arn%3Aaws%3As3%3A%3A%3Ademo-pm-s3%2F*%22%5D%7D%5D%7D"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "var j = pm.response.json();",
+                  "pm.test('iam policy applied', function(){",
+                  "  pm.expect(j.isSuccess).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Creates the demo buckets, caches auth tokens, grants the least-privilege IAM policy."
+    },
+    {
+      "name": "10 \u2014 S3 API compatibility",
+      "item": [
+        {
+          "name": "1.1 PUT object (metadata + tags)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-amz-meta-project",
+                "value": "objectscale-demo"
+              },
+              {
+                "key": "x-amz-tagging",
+                "value": "env=demo&scene=postman"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}/doc/postman-hello.txt",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}",
+                "doc",
+                "postman-hello.txt"
+              ],
+              "query": []
+            },
+            "description": "PutObject with user metadata and object tags. Metadata travels as `x-amz-meta-*`; tags as `x-amz-tagging` header.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "Hello from Postman \u2014 ObjectScale demo object.\n"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('ETag returned', function(){",
+                  "  pm.expect(pm.response.headers.get('ETag')).to.not.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 GET object",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}/doc/postman-hello.txt",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}",
+                "doc",
+                "postman-hello.txt"
+              ],
+              "query": []
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('body round-trip', function(){",
+                  "  pm.expect(pm.response.text()).to.include('ObjectScale demo object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.3 HEAD object",
+          "request": {
+            "method": "HEAD",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}/doc/postman-hello.txt",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}",
+                "doc",
+                "postman-hello.txt"
+              ],
+              "query": []
+            },
+            "description": "HeadObject \u2014 validates metadata returned without the body.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('custom metadata present', function(){",
+                  "  pm.expect(pm.response.headers.get('x-amz-meta-project')).to.eql('objectscale-demo');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.4 LIST objects (prefix)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}?list-type=2&prefix=doc%2F",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}"
+              ],
+              "query": [
+                {
+                  "key": "list-type",
+                  "value": "2"
+                },
+                {
+                  "key": "prefix",
+                  "value": "doc/"
+                }
+              ]
+            },
+            "description": "ListObjectsV2 restricted to prefix `doc/`.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('key listed', function(){",
+                  "  pm.expect(pm.response.text()).to.include('doc/postman-hello.txt');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.5 GET object tagging",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}/doc/postman-hello.txt?tagging",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}",
+                "doc",
+                "postman-hello.txt"
+              ],
+              "query": [
+                {
+                  "key": "tagging",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('tag env=demo present', function(){",
+                  "  pm.expect(pm.response.text()).to.include('env').and.to.include('demo');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.6 Multipart upload - create",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}/mp/big-part.bin?uploads",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}",
+                "mp",
+                "big-part.bin"
+              ],
+              "query": [
+                {
+                  "key": "uploads",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "InitiateMultipartUpload \u2014 captures `UploadId` for the next requests.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "var m = pm.response.text().match(/<UploadId>([^<]+)<\\/UploadId>/);",
+                  "pm.test('uploadId returned', function(){ pm.expect(m).to.not.be.null; });",
+                  "if (m) pm.environment.set('upload_id', m[1]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.7 Multipart upload - upload part 1",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/octet-stream"
+              }
+            ],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}/mp/big-part.bin?partNumber=1&uploadId={{upload_id}}",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}",
+                "mp",
+                "big-part.bin"
+              ],
+              "query": [
+                {
+                  "key": "partNumber",
+                  "value": "1"
+                },
+                {
+                  "key": "uploadId",
+                  "value": "{{upload_id}}"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "part-one-payload-for-multipart-demo"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.environment.set('mp_etag1', pm.response.headers.get('ETag'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.8 Multipart upload - upload part 2",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/octet-stream"
+              }
+            ],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}/mp/big-part.bin?partNumber=2&uploadId={{upload_id}}",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}",
+                "mp",
+                "big-part.bin"
+              ],
+              "query": [
+                {
+                  "key": "partNumber",
+                  "value": "2"
+                },
+                {
+                  "key": "uploadId",
+                  "value": "{{upload_id}}"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "part-two-payload-for-multipart-demo"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.environment.set('mp_etag2', pm.response.headers.get('ETag'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.9 Multipart upload - complete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/xml"
+              }
+            ],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}/mp/big-part.bin?uploadId={{upload_id}}",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}",
+                "mp",
+                "big-part.bin"
+              ],
+              "query": [
+                {
+                  "key": "uploadId",
+                  "value": "{{upload_id}}"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag>{{mp_etag1}}</ETag></Part><Part><PartNumber>2</PartNumber><ETag>{{mp_etag2}}</ETag></Part></CompleteMultipartUpload>"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('multipart ETag formed', function(){",
+                  "  pm.expect(pm.response.text()).to.include('</ETag>');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.10 Presigned GET (SigV2 URL generated in pre-request)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}/doc/postman-hello.txt?AWSAccessKeyId={{access_key}}&Expires={{ps_exp}}&Signature={{ps_sig}}",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}",
+                "doc",
+                "postman-hello.txt"
+              ],
+              "query": [
+                {
+                  "key": "AWSAccessKeyId",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "Expires",
+                  "value": "{{ps_exp}}"
+                },
+                {
+                  "key": "Signature",
+                  "value": "{{ps_sig}}"
+                }
+              ]
+            },
+            "description": "Generates a Signature V2 presigned URL in the pre-request script (HMAC-SHA1 over `GET\\n\\n\\n<exp>\\n/bucket/key`), then GETs it with no auth. Verified working against this build; SigV4 presign also works via AWS SDKs/CLI.\n\n**Expires in 300s** \u2014 rerun the collection step if it ages out."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var CJS2 = require('crypto-js');",
+                  "const exp = Math.floor(Date.now()/1000) + 300;",
+                  "const bucket = pm.environment.get('pm_bucket');",
+                  "const key = 'doc/postman-hello.txt';",
+                  "const sts = 'GET\\n\\n\\n' + exp + '\\n/' + bucket + '/' + key;",
+                  "const sig = CJS2.enc.Base64.stringify(CJS2.HmacSHA1(sts, pm.environment.get('secret_key')));",
+                  "pm.environment.set('ps_exp', String(exp));",
+                  "pm.environment.set('ps_sig', encodeURIComponent(sig));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('presigned body ok', function(){",
+                  "  pm.expect(pm.response.text()).to.include('ObjectScale demo object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.11 Bucket versioning - enable",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/xml"
+              }
+            ],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}?versioning",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}"
+              ],
+              "query": [
+                {
+                  "key": "versioning",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "<VersioningConfiguration><Status>Enabled</Status></VersioningConfiguration>"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.12 Bucket versioning - read back",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}?versioning",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}"
+              ],
+              "query": [
+                {
+                  "key": "versioning",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('versioning Enabled', function(){",
+                  "  pm.expect(pm.response.text()).to.include('Enabled');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.13 EXPECTED FAILURE - GET missing object",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}/does/not-exist.txt",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}",
+                "does",
+                "not-exist.txt"
+              ],
+              "query": []
+            },
+            "description": "Negative test: must return 404 `NoSuchKey` \u2014 proves errors surface correctly.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('NoSuchKey (expected miss)', function () {",
+                  "  pm.expect(pm.response.code).to.eql(404);",
+                  "  pm.expect(pm.response.text()).to.include('NoSuchKey');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.14 EXPECTED FAILURE - object-lock read with object user",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lock_bucket}}?object-lock",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lock_bucket}}"
+              ],
+              "query": [
+                {
+                  "key": "object-lock",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "ObjectScale behavior note: GetObjectLockConfiguration rejects legacy object users \u2014 expects `403 AccessDenied` with the 'Only IAM users are supported' message. IAM creds (request 3.x) succeed.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('object user denied for lock ops', function(){",
+                  "  pm.expect(pm.response.code).to.eql(403);",
+                  "  pm.expect(pm.response.text()).to.include('Only IAM users');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.15 DOCUMENTED GAP - bucket tagging unsupported",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/xml"
+              }
+            ],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}?tagging",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}"
+              ],
+              "query": [
+                {
+                  "key": "tagging",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "PutBucketTagging returns `501 NotImplemented` on this build \u2014 kept in the collection to demonstrate the compatibility gap honestly (object-level tagging works; bucket-level does not).",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "<Tagging><TagSet><Tag><Key>env</Key><Value>demo</Value></Tag></TagSet></Tagging>"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('bucket tagging NotImplemented (expected gap)', function(){",
+                  "  pm.expect(pm.response.code).to.eql(501);",
+                  "  pm.expect(pm.response.text()).to.include('NotImplemented');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "PUT/GET/HEAD/LIST/tagging/multipart/presign/versioning + expected failures."
+    },
+    {
+      "name": "20 \u2014 IAM & bucket policy",
+      "item": [
+        {
+          "name": "2.1 PUT bucket policy (deny delete on protected/*)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}?policy",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}"
+              ],
+              "query": [
+                {
+                  "key": "policy",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Bucket policy denying `s3:DeleteObject` on `protected/*` for everyone. Resource ARNs accept standard `arn:aws:s3:::` form or bare `bucket/key` on this build.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"DenyDeleteProtected\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"s3:DeleteObject\",\"Resource\":\"{{pm_bucket}}/protected/*\"}]}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,201,204]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 GET bucket policy",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}?policy",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}"
+              ],
+              "query": [
+                {
+                  "key": "policy",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('policy shows DenyDeleteProtected', function(){",
+                  "  pm.expect(pm.response.text()).to.include('DenyDeleteProtected');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.3 IAM allow - demo-reader GET object",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}/doc/postman-hello.txt",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}",
+                "doc",
+                "postman-hello.txt"
+              ],
+              "query": []
+            },
+            "description": "demo-reader holds only `s3:GetObject`/`s3:ListBucket` on this bucket (policy applied in setup step 0.7). Expect 200.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{reader_access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{reader_secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.4 EXPECTED DENIAL - demo-reader PUT",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}/data/should-fail.txt",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}",
+                "data",
+                "should-fail.txt"
+              ],
+              "query": []
+            },
+            "description": "demo-reader has no PutObject permission \u2014 must be 403 AccessDenied.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{reader_access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{reader_secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "this must never be written\n"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('AccessDenied (expected denial)', function () {",
+                  "  pm.expect(pm.response.code).to.eql(403);",
+                  "  pm.expect(pm.response.text()).to.include('AccessDenied');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.5 EXPECTED DENIAL - delete protected/ (bucket policy)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}/protected/report.txt",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}",
+                "protected",
+                "report.txt"
+              ],
+              "query": []
+            },
+            "description": "First stage: create the protected object (allowed).",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "protected content\n"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.6 EXPECTED DENIAL - delete protected/ enforced",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}/protected/report.txt",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}",
+                "protected",
+                "report.txt"
+              ],
+              "query": []
+            },
+            "description": "Bucket-policy `Deny` overrides the writer's IAM `Allow` \u2014 deletion of `protected/*` must return 403 AccessDenied even for an identity with s3:*.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{writer_access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{writer_secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('AccessDenied (expected denial)', function () {",
+                  "  pm.expect(pm.response.code).to.eql(403);",
+                  "  pm.expect(pm.response.text()).to.include('AccessDenied');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Least-privilege IAM identity tests + bucket-policy deny."
+    },
+    {
+      "name": "30 \u2014 Object Lock / WORM",
+      "item": [
+        {
+          "name": "3.1 GET object-lock configuration (IAM creds)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lock_bucket}}?object-lock",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lock_bucket}}"
+              ],
+              "query": [
+                {
+                  "key": "object-lock",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{writer_access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{writer_secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('object lock enabled', function(){",
+                  "  pm.expect(pm.response.text()).to.include('Enabled');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.2 PUT object with GOVERNANCE retention (+2h)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-amz-object-lock-mode",
+                "value": "GOVERNANCE"
+              },
+              {
+                "key": "x-amz-object-lock-retain-until-date",
+                "value": "{{lock_retain}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lock_bucket}}/worm/gov-record.txt",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lock_bucket}}",
+                "worm",
+                "gov-record.txt"
+              ],
+              "query": []
+            },
+            "description": "Writes an object with `x-amz-object-lock-mode: GOVERNANCE` and a retain-until 2h out (computed in pre-request). Captures the returned `x-amz-version-id` for the version-scoped delete tests.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{writer_access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{writer_secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "WORM governance-mode record\n"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('lock_retain', new Date(Date.now()+2*3600e3).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "var vid = pm.response.headers.get('x-amz-version-id');",
+                  "pm.test('version id returned', function(){ pm.expect(vid).to.not.be.empty; });",
+                  "pm.environment.set('gov_vid', vid);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.3 GET object retention",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lock_bucket}}/worm/gov-record.txt?retention&versionId={{gov_vid}}",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lock_bucket}}",
+                "worm",
+                "gov-record.txt"
+              ],
+              "query": [
+                {
+                  "key": "retention",
+                  "value": ""
+                },
+                {
+                  "key": "versionId",
+                  "value": "{{gov_vid}}"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{writer_access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{writer_secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('governance retention stored', function(){",
+                  "  pm.expect(pm.response.text()).to.include('GOVERNANCE');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.4 Plain DELETE -> delete marker only (allowed)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lock_bucket}}/worm/gov-record.txt",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lock_bucket}}",
+                "worm",
+                "gov-record.txt"
+              ],
+              "query": []
+            },
+            "description": "On a versioned bucket a plain DELETE only adds a delete marker \u2014 same as AWS. The retained version is untouched (proven next).",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{writer_access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{writer_secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,201,204]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.5 EXPECTED DENIAL - delete retained VERSION",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lock_bucket}}/worm/gov-record.txt?versionId={{gov_vid}}",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lock_bucket}}",
+                "worm",
+                "gov-record.txt"
+              ],
+              "query": [
+                {
+                  "key": "versionId",
+                  "value": "{{gov_vid}}"
+                }
+              ]
+            },
+            "description": "The actual WORM guarantee: deleting the locked version is denied.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{writer_access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{writer_secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('AccessDenied (expected denial)', function () {",
+                  "  pm.expect(pm.response.code).to.eql(403);",
+                  "  pm.expect(pm.response.text()).to.include('AccessDenied');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.6 GET retained version still readable",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lock_bucket}}/worm/gov-record.txt?versionId={{gov_vid}}",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lock_bucket}}",
+                "worm",
+                "gov-record.txt"
+              ],
+              "query": [
+                {
+                  "key": "versionId",
+                  "value": "{{gov_vid}}"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{writer_access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{writer_secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.7 EXPECTED DENIAL - shorten retention",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/xml"
+              }
+            ],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lock_bucket}}/worm/gov-record.txt?retention&versionId={{gov_vid}}",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lock_bucket}}",
+                "worm",
+                "gov-record.txt"
+              ],
+              "query": [
+                {
+                  "key": "retention",
+                  "value": ""
+                },
+                {
+                  "key": "versionId",
+                  "value": "{{gov_vid}}"
+                }
+              ]
+            },
+            "description": "Retention can be extended but never shortened without `s3:BypassGovernanceRetention` **and** the `x-amz-bypass-governance-retention: true` header. This request sets a still-future but *earlier* date without the bypass header \u2192 must be 403 AccessDenied.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{writer_access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{writer_secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "<Retention><Mode>GOVERNANCE</Mode><RetainUntilDate>{{shorten_date}}</RetainUntilDate></Retention>"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('shorten_date', new Date(Date.now()+30*60e3).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('AccessDenied (expected denial)', function () {",
+                  "  pm.expect(pm.response.code).to.eql(403);",
+                  "  pm.expect(pm.response.text()).to.include('AccessDenied');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.8 PUT object with COMPLIANCE retention (+75m)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-amz-object-lock-mode",
+                "value": "COMPLIANCE"
+              },
+              {
+                "key": "x-amz-object-lock-retain-until-date",
+                "value": "{{comp_retain}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lock_bucket}}/worm/compliance-record.txt",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lock_bucket}}",
+                "worm",
+                "compliance-record.txt"
+              ],
+              "query": []
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{writer_access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{writer_secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "WORM compliance-mode record\n"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('comp_retain', new Date(Date.now()+75*60e3).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.environment.set('comp_vid', pm.response.headers.get('x-amz-version-id'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.9 EXPECTED DENIAL - compliance delete w/ bypass flag",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lock_bucket}}/worm/compliance-record.txt?versionId={{comp_vid}}&x-amz-bypass-governance-retention=true",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lock_bucket}}",
+                "worm",
+                "compliance-record.txt"
+              ],
+              "query": [
+                {
+                  "key": "versionId",
+                  "value": "{{comp_vid}}"
+                },
+                {
+                  "key": "x-amz-bypass-governance-retention",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Compliance mode cannot be bypassed \u2014 even an identity holding `s3:BypassGovernanceRetention` gets AccessDenied. Verified on this build.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{writer_access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{writer_secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('AccessDenied (expected denial)', function () {",
+                  "  pm.expect(pm.response.code).to.eql(403);",
+                  "  pm.expect(pm.response.text()).to.include('AccessDenied');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Governance vs compliance; deny tests assert exact AccessDenied."
+    },
+    {
+      "name": "40 \u2014 Lifecycle",
+      "item": [
+        {
+          "name": "4.0 Ensure bucket {{pm_lifecycle_bucket}} exists",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lifecycle_bucket}}",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lifecycle_bucket}}"
+              ],
+              "query": []
+            },
+            "description": "Idempotent \u2014 makes this folder safe to re-run standalone.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('created or already ours', function(){",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,409]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.1 PUT lifecycle rule (expire tmp/ in 1 day)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/xml"
+              }
+            ],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lifecycle_bucket}}?lifecycle",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lifecycle_bucket}}"
+              ],
+              "query": [
+                {
+                  "key": "lifecycle",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "<LifecycleConfiguration><Rule><ID>demo-pm-expire-tmp</ID><Status>Enabled</Status><Filter><Prefix>tmp/</Prefix></Filter><Expiration><Days>1</Days></Expiration></Rule></LifecycleConfiguration>"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.2 GET lifecycle configuration",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lifecycle_bucket}}?lifecycle",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lifecycle_bucket}}"
+              ],
+              "query": [
+                {
+                  "key": "lifecycle",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('rule present', function(){",
+                  "  pm.expect(pm.response.text()).to.include('demo-pm-expire-tmp');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.3 PUT object under tmp/ + HEAD shows expiry",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lifecycle_bucket}}/tmp/scratch.txt",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lifecycle_bucket}}",
+                "tmp",
+                "scratch.txt"
+              ],
+              "query": []
+            },
+            "description": "After the PUT, the follow-up HEAD is done by the test of this request? No \u2014 run request 4.4. The rule is live but deletion happens on the platform's periodic scan (~daily) \u2014 **configured, awaiting observation**, not claimed as expired.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "expires tomorrow\n"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.4 HEAD object - computed Expiration header",
+          "request": {
+            "method": "HEAD",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lifecycle_bucket}}/tmp/scratch.txt",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lifecycle_bucket}}",
+                "tmp",
+                "scratch.txt"
+              ],
+              "query": []
+            },
+            "description": "ObjectScale returns `Expiration: expiry-date=\"...\", rule-id=\"demo-pm-expire-tmp\"` once a matching rule exists \u2014 proof the rule is effective while the data still exists.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "var e = pm.response.headers.get('Expiration');",
+                  "pm.test('Expiration header computed by engine', function(){",
+                  "  pm.expect(e).to.not.be.empty;",
+                  "  pm.expect(e).to.include('rule-id');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": ""
+    },
+    {
+      "name": "50 \u2014 Management & monitoring APIs",
+      "item": [
+        {
+          "name": "5.1 List namespaces",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-SDS-AUTH-TOKEN",
+                "value": "{{mgmt_token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{mgmt_url}}/object/namespaces",
+              "host": [
+                "{{mgmt_url}}"
+              ],
+              "path": [
+                "object",
+                "namespaces"
+              ],
+              "query": []
+            },
+            "description": "Management API on :4443 using the cached token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('ns1 present', function(){ pm.expect(pm.response.text()).to.include('ns1'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.2 List buckets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-SDS-AUTH-TOKEN",
+                "value": "{{mgmt_token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{mgmt_url}}/object/bucket?namespace={{namespace}}",
+              "host": [
+                "{{mgmt_url}}"
+              ],
+              "path": [
+                "object",
+                "bucket"
+              ],
+              "query": [
+                {
+                  "key": "namespace",
+                  "value": "{{namespace}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.3 License features",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-SDS-AUTH-TOKEN",
+                "value": "{{mgmt_token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{mgmt_url}}/license",
+              "host": [
+                "{{mgmt_url}}"
+              ],
+              "path": [
+                "license"
+              ],
+              "query": []
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('ViPR licensed', function(){ pm.expect(pm.response.text()).to.include('ViPR'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.4 Cluster capacity (dashboard API)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-SDS-AUTH-TOKEN",
+                "value": "{{mgmt_token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{mgmt_url}}/dashboard/zones/localzone",
+              "host": [
+                "{{mgmt_url}}"
+              ],
+              "path": [
+                "dashboard",
+                "zones",
+                "localzone"
+              ],
+              "query": []
+            },
+            "description": "Capacity summary used by the portal dashboard."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('capacity data present', function(){",
+                  "  pm.expect(pm.response.text()).to.include('diskSpaceTotalSummary');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.5 Nodes list + capture first node",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-SDS-AUTH-TOKEN",
+                "value": "{{mgmt_token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{mgmt_url}}/dashboard/zones/localzone/nodes",
+              "host": [
+                "{{mgmt_url}}"
+              ],
+              "path": [
+                "dashboard",
+                "zones",
+                "localzone",
+                "nodes"
+              ],
+              "query": []
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "var m = pm.response.text().match(/dashboard\\/nodes\\/([a-f0-9-]+)/);",
+                  "if (m) pm.environment.set('node_id', m[1]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.6 Node health detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-SDS-AUTH-TOKEN",
+                "value": "{{mgmt_token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{mgmt_url}}/dashboard/nodes/{{node_id}}",
+              "host": [
+                "{{mgmt_url}}"
+              ],
+              "path": [
+                "dashboard",
+                "nodes",
+                "{{node_id}}"
+              ],
+              "query": []
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('node health = Good', function(){",
+                  "  pm.expect(pm.response.text()).to.include('Good');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.7 VDCs (sites) \u2014 portal API",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-SDS-AUTH-TOKEN",
+                "value": "{{ui_token}}"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf_token}}"
+              },
+              {
+                "key": "Cookie",
+                "value": "XSRF-TOKEN={{xsrf_token}}; ECSAuthToken={{ui_token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{portal_url}}/vdcs",
+              "host": [
+                "{{portal_url}}"
+              ],
+              "path": [
+                "vdcs"
+              ],
+              "query": []
+            },
+            "description": "Site topology: this lab returns exactly one VDC (`vdc1`) \u2014 the proof point for 'single site, multisite is documented not live'."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "var j = pm.response.json();",
+                  "pm.test('single site (expected in this lab)', function(){",
+                  "  pm.expect(j.data.length).to.eql(1);",
+                  "  pm.expect(j.data[0].vdcName).to.eql('vdc1');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.8 Replication groups \u2014 portal API",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-SDS-AUTH-TOKEN",
+                "value": "{{ui_token}}"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf_token}}"
+              },
+              {
+                "key": "Cookie",
+                "value": "XSRF-TOKEN={{xsrf_token}}; ECSAuthToken={{ui_token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{portal_url}}/replicationgroups",
+              "host": [
+                "{{portal_url}}"
+              ],
+              "path": [
+                "replicationgroups"
+              ],
+              "query": []
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "var j = pm.response.json();",
+                  "pm.test('rg1 spans 1 zone', function(){",
+                  "  pm.expect(j.data[0].vdcStoragePools.length).to.eql(1);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.9 Alert policies \u2014 portal API",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-SDS-AUTH-TOKEN",
+                "value": "{{ui_token}}"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf_token}}"
+              },
+              {
+                "key": "Cookie",
+                "value": "XSRF-TOKEN={{xsrf_token}}; ECSAuthToken={{ui_token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{portal_url}}/alertpolicy/list",
+              "host": [
+                "{{portal_url}}"
+              ],
+              "path": [
+                "alertpolicy",
+                "list"
+              ],
+              "query": []
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "var j = pm.response.json();",
+                  "pm.test('system alert policies enabled', function(){",
+                  "  pm.expect(j.data.length).to.be.above(5);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.10 SNMP targets \u2014 portal API",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-SDS-AUTH-TOKEN",
+                "value": "{{ui_token}}"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf_token}}"
+              },
+              {
+                "key": "Cookie",
+                "value": "XSRF-TOKEN={{xsrf_token}}; ECSAuthToken={{ui_token}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{portal_url}}/snmp",
+              "host": [
+                "{{portal_url}}"
+              ],
+              "path": [
+                "snmp"
+              ],
+              "query": []
+            },
+            "description": "Empty list is expected \u2014 no SNMP target configured in this lab; the API path exists for integration."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.11 IAM ListUsers \u2014 portal /iam proxy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-SDS-AUTH-TOKEN",
+                "value": "{{ui_token}}"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf_token}}"
+              },
+              {
+                "key": "Cookie",
+                "value": "XSRF-TOKEN={{xsrf_token}}; ECSAuthToken={{ui_token}}"
+              },
+              {
+                "key": "x-emc-namespace",
+                "value": "{{namespace}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "url": {
+              "raw": "{{portal_url}}/iam",
+              "host": [
+                "{{portal_url}}"
+              ],
+              "path": [
+                "iam"
+              ],
+              "query": []
+            },
+            "description": "AWS-style IAM query API. Namespace supplied via `x-emc-namespace` header + `Namespace` form field.",
+            "body": {
+              "mode": "raw",
+              "raw": "Action=ListUsers&Namespace={{namespace}}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('demo-reader listed', function(){",
+                  "  pm.expect(pm.response.text()).to.include('demo-reader');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Capacity, health, topology, alerts, IAM listing."
+    },
+    {
+      "name": "80 \u2014 Cleanup",
+      "item": [
+        {
+          "name": "8.1 Delete bucket policy on {{pm_bucket}}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}?policy",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}"
+              ],
+              "query": [
+                {
+                  "key": "policy",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Removed **first** \u2014 the DenyDeleteProtected statement would otherwise block deleting `protected/*`.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,201,204]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.2 List object versions (build delete payload)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}?versions",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}"
+              ],
+              "query": [
+                {
+                  "key": "versions",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Bucket has versioning enabled \u2014 every object may have versions and delete markers. The test script parses every Key/VersionId pair into `{{delete_body}}` for the next request.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "var xml = '<Delete>';",
+                  "var re = /<Key>([^<]+)<\\/Key><VersionId>([^<]+)<\\/VersionId>/g, m;",
+                  "while ((m = re.exec(pm.response.text()))) {",
+                  "  xml += '<Object><Key>'+m[1]+'</Key><VersionId>'+m[2]+'</VersionId></Object>';",
+                  "}",
+                  "xml += '</Delete>';",
+                  "pm.environment.set('delete_body', xml);",
+                  "pm.test('objects parsed into delete payload', function(){",
+                  "  pm.expect(xml).to.include('<Object>');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.3 Batch-delete all versions + markers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/xml"
+              }
+            ],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}?delete",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}"
+              ],
+              "query": [
+                {
+                  "key": "delete",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{delete_body}}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.4 Delete lifecycle object + config",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lifecycle_bucket}}/tmp/scratch.txt",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lifecycle_bucket}}",
+                "tmp",
+                "scratch.txt"
+              ],
+              "query": []
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,201,204]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.5 Delete lifecycle configuration",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lifecycle_bucket}}?lifecycle",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lifecycle_bucket}}"
+              ],
+              "query": [
+                {
+                  "key": "lifecycle",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,201,204]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.6 Delete bucket {{pm_bucket}}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_bucket}}",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_bucket}}"
+              ],
+              "query": []
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,201,204]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.7 Delete bucket {{pm_lifecycle_bucket}}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lifecycle_bucket}}",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lifecycle_bucket}}"
+              ],
+              "query": []
+            },
+            "description": "",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 2xx', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,201,204]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.8 \u26a0 BLOCKED-UNTIL-EXPIRY \u2014 delete {{pm_lock_bucket}}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{s3_http}}/{{pm_lock_bucket}}",
+              "host": [
+                "{{s3_http}}"
+              ],
+              "path": [
+                "{{pm_lock_bucket}}"
+              ],
+              "query": []
+            },
+            "description": "**Cannot succeed until the Object Lock retentions set in folder 30 expire** (governance +2h, compliance +75m from run time) and all object versions + delete markers are removed. Until then this returns `409 BucketNotEmpty` \u2014 that is the correct, expected behavior; the test accepts it. After expiry, remove versions/markers (8.2/8.3 pattern against this bucket) then re-send. Governance leftovers need `x-amz-bypass-governance-retention:true`; compliance objects cannot be force-deleted \u2014 wait for expiry.",
+            "auth": {
+              "type": "awsv4",
+              "awsv4": [
+                {
+                  "key": "accessKey",
+                  "value": "{{writer_access_key}}"
+                },
+                {
+                  "key": "secretKey",
+                  "value": "{{writer_secret_key}}"
+                },
+                {
+                  "key": "region",
+                  "value": "{{aws_region}}"
+                },
+                {
+                  "key": "service",
+                  "value": "s3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('bucket removed or correctly refused', function(){",
+                  "  pm.expect(pm.response.code).to.be.oneOf([204, 409]);",
+                  "  if (pm.response.code === 409) {",
+                  "    pm.expect(pm.response.text()).to.include('BucketNotEmpty');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Removes demo-pm-* resources. 8.6 is blocked by design until retention expires."
+    },
+    {
+      "name": "90 \u2014 Scenes outside Postman's reach",
+      "item": [],
+      "description": "## Scenes demonstrated only via CLI/portal (links to runbook)\n\n- **Scene 2 NFS multiprotocol** \u2014 needs a host NFS mount. Runbook: `scenes/scene2_nfs.sh`; mount `192.168.1.31:/ns1/demo-nfs-share`. Live-verified bidirectionally in `evidence/scene2_nfs.txt`.\n- **Scene 7 multisite active-active** \u2014 physical two-site behavior; this lab is single-VDC (see request 5.7). Runnable plan: `docs/scene7_multisite_plan.md`.\n- **Scene 9 Copy to Cloud** \u2014 requires an authorized external S3 destination + credentials; policy API exists (`POST /bucket/{b}/{ns}/copypolicy`, needs metadata-search bucket). BOM + procedure: `docs/scene9_copy_to_cloud.md`.\n- **Syslog/SNMP/webhook targets** \u2014 none provisioned in lab; APIs listed in folder 50."
+    }
+  ],
+  "variable": [
+    {
+      "key": "demo_tag",
+      "value": "postman"
+    }
+  ]
+}

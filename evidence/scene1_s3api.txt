@@ -1,23 +1,26 @@
-=== Scene 1: S3 API compatibility — 2026-09-29T03:38:23Z ===
+=== Scene 1: S3 API compatibility — 2026-09-29T04:13:16Z ===
 endpoint=http://192.168.1.31:9020 bucket=demo-s3compat user=demo-s3user
 
 ##### aws --endpoint-url http://192.168.1.31:9020 s3api put-object --bucket demo-s3compat --key doc/demo-file.txt --body /root/OBS_Demo/samples/demo-file.txt --metadata project=demo,owner=presales --tagging env=demo&scene=1 --content-type text/plain
 {
-    "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\""
+    "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
+    "VersionId": "1790655195888"
 }
    [exit=0]
 
 ##### aws --endpoint-url http://192.168.1.31:9020 s3api put-object --bucket demo-s3compat --key data/demo.csv --body /root/OBS_Demo/samples/demo.csv --tagging env=demo
 {
-    "ETag": "\"4fbd9b4f91601496abb43151d83e11c5\""
+    "ETag": "\"4fbd9b4f91601496abb43151d83e11c5\"",
+    "VersionId": "1790655196284"
 }
    [exit=0]
 
 ##### aws --endpoint-url http://192.168.1.31:9020 s3api head-object --bucket demo-s3compat --key doc/demo-file.txt
 {
-    "LastModified": "Tue, 29 Sep 2026 03:38:25 GMT",
+    "LastModified": "Tue, 29 Sep 2026 04:13:15 GMT",
     "ContentLength": 52,
     "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
+    "VersionId": "1790655195888",
     "ContentType": "text/plain",
     "Metadata": {
         "owner": "presales",
@@ -28,9 +31,10 @@ endpoint=http://192.168.1.31:9020 bucket=demo-s3compat user=demo-s3user
 
 ##### aws --endpoint-url http://192.168.1.31:9020 s3api get-object --bucket demo-s3compat --key doc/demo-file.txt /tmp/scene1-get.txt
 {
-    "LastModified": "Tue, 29 Sep 2026 03:38:25 GMT",
+    "LastModified": "Tue, 29 Sep 2026 04:13:15 GMT",
     "ContentLength": 52,
     "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
+    "VersionId": "1790655195888",
     "CacheControl": "no-cache, no-store, must-revalidate, max-age=3600",
     "ContentType": "text/plain",
     "Metadata": {
@@ -49,7 +53,7 @@ endpoint=http://192.168.1.31:9020 bucket=demo-s3compat user=demo-s3user
     "Contents": [
         {
             "Key": "doc/demo-file.txt",
-            "LastModified": "2026-09-29T03:38:25.295Z",
+            "LastModified": "2026-09-29T04:13:15.888Z",
             "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
             "Size": 52,
             "StorageClass": "STANDARD"
@@ -63,14 +67,35 @@ endpoint=http://192.168.1.31:9020 bucket=demo-s3compat user=demo-s3user
     "Contents": [
         {
             "Key": "data/demo.csv",
-            "LastModified": "2026-09-29T03:38:25.885Z",
+            "LastModified": "2026-09-29T04:13:16.284Z",
             "ETag": "\"4fbd9b4f91601496abb43151d83e11c5\"",
             "Size": 36,
             "StorageClass": "STANDARD"
         },
         {
+            "Key": "data/writer.txt",
+            "LastModified": "2026-09-29T03:46:46.291Z",
+            "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
+            "Size": 52,
+            "StorageClass": "STANDARD"
+        },
+        {
             "Key": "doc/demo-file.txt",
-            "LastModified": "2026-09-29T03:38:25.295Z",
+            "LastModified": "2026-09-29T04:13:15.888Z",
+            "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
+            "Size": 52,
+            "StorageClass": "STANDARD"
+        },
+        {
+            "Key": "mp/big-file.bin",
+            "LastModified": "2026-09-29T03:38:31.896Z",
+            "ETag": "\"8699614149180415cf1650f5cf137c20-2\"",
+            "Size": 12582912,
+            "StorageClass": "STANDARD"
+        },
+        {
+            "Key": "protected/important.txt",
+            "LastModified": "2026-09-29T03:41:03.994Z",
             "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
             "Size": 52,
             "StorageClass": "STANDARD"
@@ -159,23 +184,23 @@ wait                                     | help
 {
     "Bucket": "demo-s3compat",
     "Key": "mp/big-file.bin",
-    "UploadId": "AQAAAaDrPhM15I5rJdi7QV-loxDTZVhjdMy91l8"
+    "UploadId": "AQAAAaDrXfdz5I5rJdi7QV-loxDTZVhjdJMqzR4"
 }
 part 1 etag="462f2dd503e497a4d962ba25745c6c52"
 part 2 etag="97e0004b736576ab57a2536ca2d32f6f"
 
-##### aws --endpoint-url http://192.168.1.31:9020 s3api list-parts --bucket demo-s3compat --key mp/big-file.bin --upload-id AQAAAaDrPhM15I5rJdi7QV-loxDTZVhjdMy91l8
+##### aws --endpoint-url http://192.168.1.31:9020 s3api list-parts --bucket demo-s3compat --key mp/big-file.bin --upload-id AQAAAaDrXfdz5I5rJdi7QV-loxDTZVhjdJMqzR4
 {
     "Parts": [
         {
             "PartNumber": 1,
-            "LastModified": "2026-09-29T03:38:29.614Z",
+            "LastModified": "2026-09-29T04:13:19.592Z",
             "ETag": "\"462f2dd503e497a4d962ba25745c6c52\"",
             "Size": 6291456
         },
         {
             "PartNumber": 2,
-            "LastModified": "2026-09-29T03:38:30.604Z",
+            "LastModified": "2026-09-29T04:13:20.073Z",
             "ETag": "\"97e0004b736576ab57a2536ca2d32f6f\"",
             "Size": 6291456
         }
@@ -192,8 +217,9 @@ part 2 etag="97e0004b736576ab57a2536ca2d32f6f"
 }
    [exit=0]
 
-##### aws --endpoint-url http://192.168.1.31:9020 s3api complete-multipart-upload --bucket demo-s3compat --key mp/big-file.bin --upload-id AQAAAaDrPhM15I5rJdi7QV-loxDTZVhjdMy91l8 --multipart-upload {"Parts":[{"ETag":"462f2dd503e497a4d962ba25745c6c52","PartNumber":1},{"ETag":"97e0004b736576ab57a2536ca2d32f6f","PartNumber":2}]}
+##### aws --endpoint-url http://192.168.1.31:9020 s3api complete-multipart-upload --bucket demo-s3compat --key mp/big-file.bin --upload-id AQAAAaDrXfdz5I5rJdi7QV-loxDTZVhjdJMqzR4 --multipart-upload {"Parts":[{"ETag":"462f2dd503e497a4d962ba25745c6c52","PartNumber":1},{"ETag":"97e0004b736576ab57a2536ca2d32f6f","PartNumber":2}]}
 {
+    "VersionId": "1790655200928",
     "Location": "http://192.168.1.31:9020/demo-s3compat/mp/big-file.bin",
     "Bucket": "demo-s3compat",
     "Key": "mp/big-file.bin",
@@ -203,9 +229,10 @@ part 2 etag="97e0004b736576ab57a2536ca2d32f6f"
 
 ##### aws --endpoint-url http://192.168.1.31:9020 s3api head-object --bucket demo-s3compat --key mp/big-file.bin
 {
-    "LastModified": "Tue, 29 Sep 2026 03:38:31 GMT",
+    "LastModified": "Tue, 29 Sep 2026 04:13:20 GMT",
     "ContentLength": 12582912,
     "ETag": "\"8699614149180415cf1650f5cf137c20-2\"",
+    "VersionId": "1790655200928",
     "ContentType": "application/octet-stream",
     "Metadata": {}
 }
@@ -217,9 +244,9 @@ cc20291f12c1d7be72d7d703a596372f  /tmp/scene1-mpu.bin
    [exit=0]
 
 ##### presigned URL
-presigned=http://192.168.1.31:9020/demo-s3compat/doc/demo-file.txt?AWSAccessKeyId=<redacted>&Signature=<redacted>&Expires=1790653414
+presigned=http://192.168.1.31:9020/demo-s3compat/doc/demo-file.txt?AWSAccessKeyId=<redacted>&Signature=<redacted>&Expires=1790655503
 
-##### curl -s http://192.168.1.31:9020/demo-s3compat/doc/demo-file.txt?AWSAccessKeyId=<redacted>&Signature=<redacted>&Expires=1790653414 -o /tmp/scene1-presign.txt -w http=%{http_code}\n
+##### curl -s http://192.168.1.31:9020/demo-s3compat/doc/demo-file.txt?AWSAccessKeyId=<redacted>&Signature=<redacted>&Expires=1790655503 -o /tmp/scene1-presign.txt -w http=%{http_code}\n
 http=200
    [exit=0]
 
@@ -284,9 +311,10 @@ An error occurred (NoSuchCORSConfiguration) when calling the GetBucketCors opera
    [exit=0]
 
 ##### aws --endpoint-url http://192.168.1.31:9020 s3api get-bucket-policy --bucket demo-s3compat
-
-An error occurred (NoSuchBucketPolicy) when calling the GetBucketPolicy operation: The bucket policy does not exist.
-   [exit=255]
+{
+    "Policy": "{\"Version\":\"2012-10-17\",\"Id\":\"null\",\"Statement\":[{\"Action\":\"s3:DeleteObject\",\"Resource\":\"demo-s3compat\\/protected\\/*\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"Sid\":\"DemoDenyDeleteProtected\"}]}"
+}
+   [exit=0]
 
 ##### aws --endpoint-url http://192.168.1.31:9020 s3api get-public-access-block --bucket demo-s3compat
 {
@@ -307,8 +335,21 @@ An error occurred (AccessDenied) when calling the GetObjectLockConfiguration ope
             "Size": 52,
             "StorageClass": "STANDARD",
             "Key": "doc/demo-file.txt",
-            "VersionId": "null",
+            "VersionId": "1790655195888",
             "IsLatest": true,
+            "LastModified": "2026-09-29T04:13:15.888Z",
+            "Owner": {
+                "DisplayName": "demo-s3user",
+                "ID": "demo-s3user"
+            }
+        },
+        {
+            "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
+            "Size": 52,
+            "StorageClass": "STANDARD",
+            "Key": "doc/demo-file.txt",
+            "VersionId": "null",
+            "IsLatest": false,
             "LastModified": "2026-09-29T03:38:25.295Z",
             "Owner": {
                 "DisplayName": "demo-s3user",
