@@ -1,0 +1,36 @@
+=== Scene 5: Object Lock / WORM — 2026-09-29T03:46:55Z ===
+## create demo-lock bucket with object lock enabled (creates with versioning)
+{
+    "Location": "/demo-lock"
+}
+{
+    "ObjectLockConfiguration": {
+        "ObjectLockEnabled": "Enabled"
+    }
+}
+{
+    "Status": "Enabled"
+}
+## put object with short governance-mode retention (until +2h)
+{
+    "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
+    "VersionId": "1790653615328"
+}
+{
+    "Retention": {
+        "Mode": "GOVERNANCE",
+        "RetainUntilDate": "2026-09-29T05:46:56.000Z"
+    }
+}
+## delete attempt (expect AccessDenied - object under retention)
+{
+    "DeleteMarker": true,
+    "VersionId": "1790653616097"
+}
+## read still works
+
+An error occurred (NoSuchKey) when calling the GetObject operation: The specified key does not exist.
+NOTE: governance mode can be bypassed with s3:BypassGovernanceRetention +
+      x-amz-bypass-governance-retention header; compliance mode cannot.
+      Retention expires at 2026-09-29T05:46:56Z - self-cleaning.
+=== end scene5 ===

@@ -1,0 +1,26 @@
+=== Scene 4b: IAM allow/deny tests — 2026-09-29T03:46:46Z ===
+## demo-reader GET (expect allow)
+{
+    "LastModified": "Tue, 29 Sep 2026 03:38:25 GMT",
+    "ContentLength": 52,
+    "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
+    "CacheControl": "no-cache, no-store, must-revalidate, max-age=3600",
+    "ContentType": "text/plain",
+    "Metadata": {
+        "owner": "presales",
+## demo-reader PUT (expect AccessDenied)
+
+An error occurred (AccessDenied) when calling the PutObject operation: Access Denied
+## demo-writer PUT (expect allow)
+{
+    "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
+    "VersionId": "1790653606291"
+}
+## demo-writer DELETE on protected/ (expect AccessDenied via bucket policy)
+
+An error occurred (AccessDenied) when calling the DeleteObject operation: Access Denied
+## current bucket policy (scoped deny)
+{
+    "Policy": "{\"Version\":\"2012-10-17\",\"Id\":\"null\",\"Statement\":[{\"Action\":\"s3:DeleteObject\",\"Resource\":\"demo-s3compat\\/protected\\/*\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"Sid\":\"DemoDenyDeleteProtected\"}]}"
+}
+=== end scene4b ===

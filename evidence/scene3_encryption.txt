@@ -1,0 +1,41 @@
+=== Scene 3: encryption — 2026-09-29T03:41:48Z ===
+## TLS handshake on S3 HTTPS endpoint https://192.168.1.31:9021
+subject=CN = DataService
+issuer=CN = DataService
+New, TLSv1.3, Cipher is TLS_AES_128_GCM_SHA256
+Verify return code: 18 (self-signed certificate)
+subject=CN = DataService
+issuer=CN = DataService
+notBefore=Apr 23 02:42:44 2026 GMT
+notAfter=Apr 20 02:42:44 2036 GMT
+sha256 Fingerprint=79:38:C1:CD:A1:30:3F:E0:33:60:94:F2:4D:50:08:9C:F9:59:13:E5:AD:5C:EB:F4:78:D5:60:8F:74:8F:4D:56
+
+## TLS S3 transfer (GET over HTTPS)
+/usr/lib/python3/dist-packages/urllib3/connectionpool.py:1020: InsecureRequestWarning: Unverified HTTPS request is being made to host '192.168.1.31'. Adding certificate verification is strongly advised. See: https://urllib3.readthedocs.io/en/latest/advanced-usage.html#ssl-warnings
+  warnings.warn(
+{
+    "LastModified": "Tue, 29 Sep 2026 03:38:25 GMT",
+    "ContentLength": 52,
+    "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
+    "CacheControl": "no-cache, no-store, must-revalidate, max-age=3600",
+    "ContentType": "text/plain",
+    "Metadata": {
+        "owner": "presales",
+        "project": "demo"
+    },
+tls_get_exit=0
+TLS round-trip content verified
+
+## SSE-S3 header probe (x-amz-server-side-encryption AES256)
+
+An error occurred (Server side encryption (D@RE) is not supported) when calling the PutObject operation: D@RE jar/license is unavailable hence server side encryption requests are not supported.
+
+## SSE-C (customer key) probe
+
+An error occurred (Server side encryption (D@RE) is not supported) when calling the PutObject operation: D@RE jar/license is unavailable hence server side encryption requests are not supported.
+
+## bucket default encryption config
+{
+    "ServerSideEncryptionConfiguration": {}
+}
+=== end scene3 ===

@@ -1,0 +1,20 @@
+=== Scene 9: copy to cloud — 2026-09-29T03:48:12Z ===
+## bucket copy-policy state on demo-s3compat (ObjectScale 'Copy to Cloud')
+{"status":"error","messageKey":"bkt.msg.copy.policy.get.success.error","msgDetails":"Error 1013 (http: 400): Bad request body. Failed listPolicyRequest","isSuccess":false,"isError":true}
+
+## bucket copy-policy on demo-copycloud
+{"status":"error","messageKey":"bkt.msg.copy.policy.get.success.error","msgDetails":"Error 1013 (http: 400): Bad request body. Failed listPolicyRequest","isSuccess":false,"isError":true}
+
+## certificate authorities registered for external TLS endpoints
+{"status":"success","data":{"certificateList":[]},"isSuccess":true,"isError":false}
+
+## external key servers / cloud targets
+{"status":"success","data":[],"isSuccess":true,"isError":false}
+
+## migration service (TransformSvc)
+{"status":"success","data":{"dataNodeStatusList":[{"dataNode":"luna","serviceName":"TransformSvc","status":"OFF"}]},"isSuccess":true,"isError":false}
+
+No authorized cloud destination or credentials are configured in this
+lab, so no copy is performed. See docs/scene9_copy_to_cloud.md for the
+ready-to-run procedure and bill of materials.
+=== end scene9 ===

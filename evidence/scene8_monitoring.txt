@@ -1,0 +1,109 @@
+=== Scene 8: monitoring — 2026-09-29T03:48:05Z ===
+## node/process health
+{"status":"success","data":[{"nodeName":"luna","nodeIp":"192.168.1.31","mgmtIp":"192.168.1.31","geoIp":"192.168.1.31","dataIp":"192.168.1.31","privateIp":"192.168.1.31","nodeId":"d6029d4c-3ebb-11f1-8c6f-0050563cefd1","rackId":"","version":"4.3.0.0.142978.ab620a08b0b8","isLocal":true,"status":"unavaliable","data2Ip":"192.168.1.31","psnt":"","label":"DRIVE_TECH_HDD","securityStatus":"Unknown"}],"isSuccess":true,"isError":false}
+
+## dashboard - zone capacity summary
+{
+ "apiChange": "1",
+ "allocatedCapacityForecast": [],
+ "diskSpaceTotalSummary": {
+  "Min": [
+   {
+    "t": "1790643600",
+    "Space": "1020054732800"
+   }
+  ],
+  "Max": [
+   {
+    "t": "1790650800",
+    "Space": "1084479242240"
+   }
+  ],
+  "Avg": "1.021128474624E12"
+ },
+ "diskSpaceAllocatedSummary": {
+  "Min": [
+   {
+    "t": "1790643600",
+    "Space": "43083849600"
+   }
+  ],
+  "Max": [
+   {
+    "t": "1790650800",
+    "Space": "84557088000"
+   }
+  ],
+  "Avg": "4.361736456E10"
+ }
+}
+
+## storage pools
+{
+    "apiChange": "1",
+    "title": "storagepools List",
+    "_links": {
+        "self": {
+            "href": "/dashboard/zones/localzone/storagepools"
+        }
+    },
+    "_embedded": {
+        "_instances": [
+            {
+                "_links": {
+                    "self": {
+                        "href": "/dashboard/storagepools/urn:storageos:VirtualArray:51e1c219-9941-4733-a2ae-f8bc31436ac3"
+                    },
+                    "nodes": {
+                        "href": "/dashboard/storagepools/urn:storageos:VirtualArray:51e1c219-9941-4733-a2ae-f8bc31436ac3/nodes"
+                    }
+                },
+                "chunksL1JournalTotalSize": "5781062",
+                "recoveryRateCurrent": [
+                    {
+                        "t": "1790653685",
+                        "Rate": "0"
+                    }
+                ],
+                "chunksRepoTotalSealSize": "0",
+                "chunksL1BtreeNumber": "24",
+                "gcUserUnreclaimableCurrent": [
+                    {
+                        "t": "1790653685",
+                        "Capacity": "0"
+                    }
+                ],
+                "gcUserTotalDetectedCurrent": [
+                    {
+                        "t": "1790653685",
+                        "Capacity": "0"
+                    }
+                ],
+
+## recent events/alerts
+{"status":"success","isSuccess":true,"isError":false}
+
+## alert policies (system)
+BPlusTreeHealthStatus | BPlusTree Health Status | true
+BlobsvcDiskCacheSize | Blobsvc Page Table Disk Cache Size (MB) | true
+BlobsvcMemoryCacheSize | Blobsvc Page Table Memory Cache Size (MB) | true
+BtreeChunkLevelGC | Btree Chunk Level GC | true
+BtreeDiskLevelGC | Btree Disk Level GC | true
+BtreePartialGC | Btree Partial GC | true
+DTSMServiceDiskCacheSize | DTSM Page Table Disk Cache Size (MB) | true
+DTSMServiceMemoryCacheSize | DTSM Page Table Memory Cache Size (MB) | true
+DataMovementErrorRate | Data Movement Error Rate | true
+DataMovementLag | Data Movement Lag | true
+EKMServerCertificateExpiry | EKM Server Certificate Expiry | true
+EKMServerConnectionStatus | EKM Server Connection Status | true
+GCStatus | GC Status | true
+MonitoringHealth | Monitoring Data Last Added | true
+NodeFDLimitFailure | Node FD limit exceeded | true
+
+## SNMP targets
+{"status":"success","data":[],"isSuccess":true,"isError":false}
+
+## metering sample (billing API)
+{"status":"success","data":[],"isSuccess":true,"isError":false}
+
+=== end scene8 ===

@@ -1,0 +1,38 @@
+=== Scene 6: lifecycle — 2026-09-29T03:42:00Z ===
+## rule as stored:
+{
+    "Rules": [
+        {
+            "Expiration": {
+                "Days": 1
+            },
+            "ID": "demo-expire-tmp-1d",
+            "Filter": {
+                "Prefix": "tmp/"
+            },
+            "Status": "Enabled"
+        },
+        {
+            "ID": "demo-expire-versioned",
+            "Filter": {
+                "Prefix": "logs/"
+            },
+            "Status": "Enabled",
+            "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 1
+            }
+        }
+    ]
+}
+## object written to tmp/ - expiration requires the bucket lifecycle scanner
+## to run; Dell ObjectScale evaluates rules periodically (typically daily).
+## Expected earliest effect: ~24h after rule creation.
+{
+    "Expiration": "expiry-date=\"Thu, 01 Oct 2026 00:00:00 GMT\", rule-id=\"demo-expire-tmp-1d\"",
+    "LastModified": "Tue, 29 Sep 2026 03:42:00 GMT",
+    "ContentLength": 52,
+    "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
+    "ContentType": "application/octet-stream",
+    "Metadata": {}
+}
+=== end scene6 ===

@@ -1,0 +1,321 @@
+=== Scene 1: S3 API compatibility — 2026-09-29T03:38:23Z ===
+endpoint=http://192.168.1.31:9020 bucket=demo-s3compat user=demo-s3user
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api put-object --bucket demo-s3compat --key doc/demo-file.txt --body /root/OBS_Demo/samples/demo-file.txt --metadata project=demo,owner=presales --tagging env=demo&scene=1 --content-type text/plain
+{
+    "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\""
+}
+   [exit=0]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api put-object --bucket demo-s3compat --key data/demo.csv --body /root/OBS_Demo/samples/demo.csv --tagging env=demo
+{
+    "ETag": "\"4fbd9b4f91601496abb43151d83e11c5\""
+}
+   [exit=0]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api head-object --bucket demo-s3compat --key doc/demo-file.txt
+{
+    "LastModified": "Tue, 29 Sep 2026 03:38:25 GMT",
+    "ContentLength": 52,
+    "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
+    "ContentType": "text/plain",
+    "Metadata": {
+        "owner": "presales",
+        "project": "demo"
+    }
+}
+   [exit=0]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api get-object --bucket demo-s3compat --key doc/demo-file.txt /tmp/scene1-get.txt
+{
+    "LastModified": "Tue, 29 Sep 2026 03:38:25 GMT",
+    "ContentLength": 52,
+    "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
+    "CacheControl": "no-cache, no-store, must-revalidate, max-age=3600",
+    "ContentType": "text/plain",
+    "Metadata": {
+        "owner": "presales",
+        "project": "demo"
+    },
+    "TagCount": 2
+}
+   [exit=0]
+
+##### diff /root/OBS_Demo/samples/demo-file.txt /tmp/scene1-get.txt
+   [exit=0]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api list-objects-v2 --bucket demo-s3compat --prefix doc/
+{
+    "Contents": [
+        {
+            "Key": "doc/demo-file.txt",
+            "LastModified": "2026-09-29T03:38:25.295Z",
+            "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
+            "Size": 52,
+            "StorageClass": "STANDARD"
+        }
+    ]
+}
+   [exit=0]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api list-objects-v2 --bucket demo-s3compat
+{
+    "Contents": [
+        {
+            "Key": "data/demo.csv",
+            "LastModified": "2026-09-29T03:38:25.885Z",
+            "ETag": "\"4fbd9b4f91601496abb43151d83e11c5\"",
+            "Size": 36,
+            "StorageClass": "STANDARD"
+        },
+        {
+            "Key": "doc/demo-file.txt",
+            "LastModified": "2026-09-29T03:38:25.295Z",
+            "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
+            "Size": 52,
+            "StorageClass": "STANDARD"
+        }
+    ]
+}
+   [exit=0]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api get-object-tagging --bucket demo-s3compat --key doc/demo-file.txt
+{
+    "TagSet": [
+        {
+            "Key": "env",
+            "Value": "demo"
+        },
+        {
+            "Key": "scene",
+            "Value": "1"
+        }
+    ]
+}
+   [exit=0]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api get-object-attributes --bucket demo-s3compat --key doc/demo-file.txt --object-attributes ETag ObjectSize Checksum
+usage: To see help text, you can run:
+
+  aws help
+  aws <command> help
+  aws <command> <subcommand> help
+
+usage: aws [options] <command> <subcommand> [<subcommand> ...] [parameters]
+aws: error: argument operation: Invalid choice, valid choices are:
+
+abort-multipart-upload                   | complete-multipart-upload               
+copy-object                              | create-bucket                           
+create-multipart-upload                  | delete-bucket                           
+delete-bucket-analytics-configuration    | delete-bucket-cors                      
+delete-bucket-encryption                 | delete-bucket-intelligent-tiering-configuration
+delete-bucket-inventory-configuration    | delete-bucket-lifecycle                 
+delete-bucket-metrics-configuration      | delete-bucket-ownership-controls        
+delete-bucket-policy                     | delete-bucket-replication               
+delete-bucket-tagging                    | delete-bucket-website                   
+delete-object                            | delete-object-tagging                   
+delete-objects                           | delete-public-access-block              
+get-bucket-accelerate-configuration      | get-bucket-acl                          
+get-bucket-analytics-configuration       | get-bucket-cors                         
+get-bucket-encryption                    | get-bucket-intelligent-tiering-configuration
+get-bucket-inventory-configuration       | get-bucket-lifecycle                    
+get-bucket-lifecycle-configuration       | get-bucket-location                     
+get-bucket-logging                       | get-bucket-metrics-configuration        
+get-bucket-notification                  | get-bucket-notification-configuration   
+get-bucket-ownership-controls            | get-bucket-policy                       
+get-bucket-policy-status                 | get-bucket-replication                  
+get-bucket-request-payment               | get-bucket-tagging                      
+get-bucket-versioning                    | get-bucket-website                      
+get-object                               | get-object-acl                          
+get-object-legal-hold                    | get-object-lock-configuration           
+get-object-retention                     | get-object-tagging                      
+get-object-torrent                       | get-public-access-block                 
+head-bucket                              | head-object                             
+list-bucket-analytics-configurations     | list-bucket-intelligent-tiering-configurations
+list-bucket-inventory-configurations     | list-bucket-metrics-configurations      
+list-buckets                             | list-multipart-uploads                  
+list-object-versions                     | list-objects                            
+list-objects-v2                          | list-parts                              
+put-bucket-accelerate-configuration      | put-bucket-acl                          
+put-bucket-analytics-configuration       | put-bucket-cors                         
+put-bucket-encryption                    | put-bucket-intelligent-tiering-configuration
+put-bucket-inventory-configuration       | put-bucket-lifecycle                    
+put-bucket-lifecycle-configuration       | put-bucket-logging                      
+put-bucket-metrics-configuration         | put-bucket-notification                 
+put-bucket-notification-configuration    | put-bucket-ownership-controls           
+put-bucket-policy                        | put-bucket-replication                  
+put-bucket-request-payment               | put-bucket-tagging                      
+put-bucket-versioning                    | put-bucket-website                      
+put-object                               | put-object-acl                          
+put-object-legal-hold                    | put-object-lock-configuration           
+put-object-retention                     | put-object-tagging                      
+put-public-access-block                  | restore-object                          
+select-object-content                    | upload-part                             
+upload-part-copy                         | write-get-object-response               
+wait                                     | help                                    
+   [exit=2]
+
+##### multipart upload (create/upload-parts/complete/verify)
+{
+    "Bucket": "demo-s3compat",
+    "Key": "mp/big-file.bin",
+    "UploadId": "AQAAAaDrPhM15I5rJdi7QV-loxDTZVhjdMy91l8"
+}
+part 1 etag="462f2dd503e497a4d962ba25745c6c52"
+part 2 etag="97e0004b736576ab57a2536ca2d32f6f"
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api list-parts --bucket demo-s3compat --key mp/big-file.bin --upload-id AQAAAaDrPhM15I5rJdi7QV-loxDTZVhjdMy91l8
+{
+    "Parts": [
+        {
+            "PartNumber": 1,
+            "LastModified": "2026-09-29T03:38:29.614Z",
+            "ETag": "\"462f2dd503e497a4d962ba25745c6c52\"",
+            "Size": 6291456
+        },
+        {
+            "PartNumber": 2,
+            "LastModified": "2026-09-29T03:38:30.604Z",
+            "ETag": "\"97e0004b736576ab57a2536ca2d32f6f\"",
+            "Size": 6291456
+        }
+    ],
+    "Initiator": {
+        "ID": "demo-s3user",
+        "DisplayName": "demo-s3user"
+    },
+    "Owner": {
+        "DisplayName": "demo-s3user",
+        "ID": "demo-s3user"
+    },
+    "StorageClass": "STANDARD"
+}
+   [exit=0]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api complete-multipart-upload --bucket demo-s3compat --key mp/big-file.bin --upload-id AQAAAaDrPhM15I5rJdi7QV-loxDTZVhjdMy91l8 --multipart-upload {"Parts":[{"ETag":"462f2dd503e497a4d962ba25745c6c52","PartNumber":1},{"ETag":"97e0004b736576ab57a2536ca2d32f6f","PartNumber":2}]}
+{
+    "Location": "http://192.168.1.31:9020/demo-s3compat/mp/big-file.bin",
+    "Bucket": "demo-s3compat",
+    "Key": "mp/big-file.bin",
+    "ETag": "\"8699614149180415cf1650f5cf137c20-2\""
+}
+   [exit=0]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api head-object --bucket demo-s3compat --key mp/big-file.bin
+{
+    "LastModified": "Tue, 29 Sep 2026 03:38:31 GMT",
+    "ContentLength": 12582912,
+    "ETag": "\"8699614149180415cf1650f5cf137c20-2\"",
+    "ContentType": "application/octet-stream",
+    "Metadata": {}
+}
+   [exit=0]
+
+##### md5sum /root/OBS_Demo/samples/big-file.bin /tmp/scene1-mpu.bin
+cc20291f12c1d7be72d7d703a596372f  /root/OBS_Demo/samples/big-file.bin
+cc20291f12c1d7be72d7d703a596372f  /tmp/scene1-mpu.bin
+   [exit=0]
+
+##### presigned URL
+presigned=http://192.168.1.31:9020/demo-s3compat/doc/demo-file.txt?AWSAccessKeyId=<redacted>&Signature=<redacted>&Expires=1790653414
+
+##### curl -s http://192.168.1.31:9020/demo-s3compat/doc/demo-file.txt?AWSAccessKeyId=<redacted>&Signature=<redacted>&Expires=1790653414 -o /tmp/scene1-presign.txt -w http=%{http_code}\n
+http=200
+   [exit=0]
+
+##### diff /root/OBS_Demo/samples/demo-file.txt /tmp/scene1-presign.txt
+   [exit=0]
+
+##### bucket-level ops
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api put-bucket-tagging --bucket demo-s3compat --tagging TagSet=[{Key=env,Value=demo},{Key=demo,Value=objectscale}]
+
+An error occurred (NotImplemented) when calling the PutBucketTagging operation: The requested functionality is not implemented.
+   [exit=255]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api get-bucket-tagging --bucket demo-s3compat
+
+An error occurred (NotImplemented) when calling the GetBucketTagging operation: The requested functionality is not implemented.
+   [exit=255]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api get-bucket-acl --bucket demo-s3compat
+{
+    "Owner": {
+        "DisplayName": "demo-s3user",
+        "ID": "demo-s3user"
+    },
+    "Grants": [
+        {
+            "Grantee": {
+                "DisplayName": "demo-s3user",
+                "ID": "demo-s3user",
+                "Type": "CanonicalUser"
+            },
+            "Permission": "FULL_CONTROL"
+        }
+    ]
+}
+   [exit=0]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api put-bucket-versioning --bucket demo-s3compat --versioning-configuration Status=Enabled
+   [exit=0]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api get-bucket-versioning --bucket demo-s3compat
+{
+    "Status": "Enabled"
+}
+   [exit=0]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api get-bucket-location --bucket demo-s3compat
+{
+    "LocationConstraint": null
+}
+   [exit=0]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api get-bucket-cors --bucket demo-s3compat
+
+An error occurred (NoSuchCORSConfiguration) when calling the GetBucketCors operation: The CORS configuration does not exist
+   [exit=255]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api get-bucket-encryption --bucket demo-s3compat
+{
+    "ServerSideEncryptionConfiguration": {}
+}
+   [exit=0]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api get-bucket-policy --bucket demo-s3compat
+
+An error occurred (NoSuchBucketPolicy) when calling the GetBucketPolicy operation: The bucket policy does not exist.
+   [exit=255]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api get-public-access-block --bucket demo-s3compat
+{
+    "PublicAccessBlockConfiguration": {}
+}
+   [exit=0]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api get-object-lock-configuration --bucket demo-s3compat
+
+An error occurred (AccessDenied) when calling the GetObjectLockConfiguration operation: Only IAM users are supported with object lock enabled buckets.
+   [exit=255]
+
+##### aws --endpoint-url http://192.168.1.31:9020 s3api list-object-versions --bucket demo-s3compat --prefix doc/ --max-items 5
+{
+    "Versions": [
+        {
+            "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\"",
+            "Size": 52,
+            "StorageClass": "STANDARD",
+            "Key": "doc/demo-file.txt",
+            "VersionId": "null",
+            "IsLatest": true,
+            "LastModified": "2026-09-29T03:38:25.295Z",
+            "Owner": {
+                "DisplayName": "demo-s3user",
+                "ID": "demo-s3user"
+            }
+        }
+    ]
+}
+   [exit=0]
+=== end scene1 ===

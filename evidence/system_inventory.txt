@@ -1,0 +1,49 @@
+=== System inventory — 2026-09-29T03:54:47Z ===
+## Node version/topology
+luna 192.168.1.31 4.3.0.0.142978.ab620a08b0b8 pool-label: DRIVE_TECH_HDD
+
+## VDCs
+vdc1 192.168.1.31 encryption: True local: True
+
+## Storage pools
+sp1 EC 12 + 4 nodes: 1
+
+## Replication groups
+rg1 urn:storageos:ReplicationGroupInfo:5434aaca-3b43-4eb0-bf2e-8291058cf6fb:global vdcs: 1
+
+## License
+ViPR_CAS Permanent licensed: True
+ViPR_HDFS Permanent licensed: True
+ViPR_Unstructured Permanent licensed: True
+ViPR_Object Permanent licensed: True
+ViPR_ECS Permanent licensed: True
+
+## Namespaces
+ns1 admins: root compliance: False
+
+## SSE license feature
+{"status":"success","data":{"isEncryptionEnabled":false,"reasonString":"unknown"},"isSuccess":true,"isError":false}
+
+## Data ports observed
+  9020: open
+  9021: open
+  9022: open
+  9023: open
+  9024: open
+  9025: open
+  9101: open
+  2049: open
+  111: open
+  4443: open
+  443: open
+
+## S3 server banner
+Server: ViPR/1.0
+
+## existing buckets (pre-demo)
+  bucket1 fs: False lock: False
+  demo-copycloud fs: False lock: False
+  demo-lifecycle fs: False lock: False
+  demo-lock fs: False lock: True
+  demo-nfs-share fs: True lock: False
+  demo-s3compat fs: False lock: False

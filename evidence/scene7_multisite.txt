@@ -1,0 +1,61 @@
+=== Scene 7: multisite inspection — 2026-09-29T03:47:57Z ===
+## VDCs (sites)
+{"status":"success","data":[{"vdcId":"urn:storageos:VirtualDataCenterData:e48e6b25-d8bb-415f-a5a3-10d365586374","vdcName":"vdc1","interVdcEndPoints":"192.168.1.31","interVdcCmdEndPoints":"192.168.1.31","managementEndPoints":"192.168.1.31","secretKeys":"x6dmAE3Bm8AZ2REdXzdN","permanentlyFailed":false,"isLocal":true,"isEncryptionEnabled":true,"isHosted":false,"replicationVIP":"","managementVIP":"","dataheadVIP":"","name":"vdc1","id":"urn:storageos:VirtualDataCenterData:e48e6b25-d8bb-415f-a5a3-10d365586374","link":{"linkName":"self","linkRef":"/object/vdcs/vdc/vdc1"},"inactive":false}],"isSuccess":true,"isError":false}
+
+## replication groups
+{"status":"success","data":[{"description":"Default replication group description","isFullRep":false,"enableRebalancing":true,"useReplicationTarget":false,"enableFailover":false,"vdcStoragePools":[{"vdc":{"id":"urn:storageos:VirtualDataCenterData:e48e6b25-d8bb-415f-a5a3-10d365586374"},"storagepool":{"id":"urn:storageos:VirtualArray:51e1c219-9941-4733-a2ae-f8bc31436ac3","coldStorage":"false","status":"sp.status.not.ready","nodes":[]},"special":false,"isHosted":false,"status":"online","isActiveFailoverType":true}],"removeVdcStoragePools":[],"newVdcStoragePools":[],"id":"urn:storageos:ReplicationGroupInfo:5434aaca-3b43-4eb0-bf2e-8291058cf6fb:global","name":"rg1"}],"isSuccess":true,"isError":false}
+
+## geo connection transport
+{"status":"success","messageKey":"geo.msg.connection.status.success","data":{"geoClient":"http","geoReceiver":"http","hasSwitchTask":false},"isSuccess":true,"isError":false}
+
+## replication group detail
+{"status":"success","data":{"description":"Default replication group description","isFullRep":false,"enableRebalancing":true,"useReplicationTarget":false,"enableFailover":false,"vdcStoragePools":[{"vdc":{"id":"urn:storageos:VirtualDataCenterData:e48e6b25-d8bb-415f-a5a3-10d365586374","name":"vdc1"},"storagepool":{"id":"urn:storageos:VirtualArray:51e1c219-9941-4733-a2ae-f8bc31436ac3","name":"sp1","coldStorage":"false","status":"sp.status.not.ready","warningAlertAt":"30","errorAlertAt":"20","criticalAlertAt":"15","nodes":[],"label":"DRIVE_TECH_HDD"},"special":false,"isHosted":false,"status":"online","isActiveFailoverType":true}],"removeVdcStoragePools":[],"newVdcStoragePools":[],"id":"urn:storageos:ReplicationGroupInfo:5434aaca-3b43-4eb0-bf2e-8291058cf6fb:global","name":"rg1"},"isSuccess":true,"isError":false}
+
+## VDC dashboard (geo)
+{
+  "apiChange" : "1",
+  "title" : "replicationgroups List",
+  "_links" : {
+    "self" : {
+      "href" : "/dashboard/zones/localzone/replicationgroups"
+    }
+  },
+  "_embedded" : {
+    "_instances" : [ {
+      "_links" : {
+        "self" : {
+          "href" : "/dashboard/replicationgroups/Replication_Group:urn:storageos:ReplicationGroupInfo:5434aaca-3b43-4eb0-bf2e-8291058cf6fb:global"
+        },
+        "rglinks" : {
+          "href" : "/dashboard/replicationgroups/Replication_Group:urn:storageos:ReplicationGroupInfo:5434aaca-3b43-4eb0-bf2e-8291058cf6fb:global/rglinks"
+        },
+        "datatables" : {
+          "href" : "/dashboard/replicationgroups/Replication_Group:urn:storageos:ReplicationGroupInfo:5434aaca-3b43-4eb0-bf2e-8291058cf6fb:global/datatables"
+        }
+      },
+      "replicationEgressTrafficSummary" : {
+        "Min" : [ ],
+        "Max" : [ ],
+        "Avg" : "0.0"
+      },
+      "numZones" : "1",
+      "replicationEgressTraffic" : [ ],
+      "replicationIngressTraffic" : [ ],
+      "replicationIngressTrafficCurrent" : [ ],
+      "name" : "rg1",
+      "chunksPendingXorTotalSize" : "0",
+      "chunksRepoPendingReplicationTotalSize" : "0",
+      "id" : "Replication_Group:urn:storageos:ReplicationGroupInfo:5434aaca-3b43-4eb0-bf2e-8291058cf6fb:global",
+      "replicationEgressTrafficCurrent" : [ ],
+      "chunksJournalPendingReplicationTotalSize" : "0",
+      "replicationIngressTrafficSummary" : {
+        "Min" : [ ],
+        "Max" : [ ],
+        "Avg" : "0.0"
+      }
+    } ]
+  }
+}
+
+SITES=1
+=== end scene7 ===

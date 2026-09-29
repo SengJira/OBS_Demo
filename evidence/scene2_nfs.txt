@@ -1,0 +1,37 @@
+=== Scene 2: S3/NFS multiprotocol — 2026-09-29T03:46:07Z ===
+## export table
+{"error":null,"exports":[{"id":"5","path":"/ns1/demo-nfs-share/","showBucketQuota":false,"export-options":[{"host":"192.168.1.0/24","security":"authsys,rw,root=demo-s3user"}]}],"marker":"","successful":true}
+
+## mount
+mounted 192.168.1.31:/ns1/demo-nfs-share on /mnt/obs-demo (nfs v3, sec=sys)
+192.168.1.31:/ns1/demo-nfs-share on /mnt/obs-demo type nfs (rw,relatime,vers=3,rsize=524288,wsize=524288,namlen=255,hard,nolock,proto=tcp,timeo=600,retrans=2,sec=sys,mountaddr=192.168.1.31,mountvers=3,mountport=2049,mountproto=tcp,local_lock=all,addr=192.168.1.31)
+
+## NFS -> S3: write file over NFS, read over S3
+written-via-nfs 2026-09-29T03:46:07Z
+total 5
+drwx---rwx 3 2147483647 2147483647   96 Sep 28 20:46 .
+drwxr-xr-x 3 root       root       4096 Sep 28 20:31 ..
+-rw-r--r-- 1 2147483647 2147483647   37 Sep 28 20:46 nfs-hello.txt
+{
+    "LastModified": "Tue, 29 Sep 2026 03:46:06 GMT",
+    "ContentLength": 37,
+    "ETag": "\"1-\"",
+    "CacheControl": "no-cache, no-store, must-revalidate, max-age=3600",
+    "ContentType": "application/octet-stream",
+    "Metadata": {}
+}
+written-via-nfs 2026-09-29T03:46:07Z
+
+## S3 -> NFS: write object over S3, read over NFS
+{
+    "ETag": "\"b1513f0b95837efc450c101ea3ebb5b3\""
+}
+/mnt/obs-demo/s3-dir/s3-written.txt
+/mnt/obs-demo/nfs-hello.txt
+ObjectScale demo sample file - 2026-09-29T03:37:52Z
+(read back over NFS - content matches S3 PUT)
+  Size: 52        	Blocks: 1          IO Block: 524288 regular file
+Access: (0700/-rwx------)  Uid: (2147483647/ UNKNOWN)   Gid: (2147483647/ UNKNOWN)
+Access: 2026-09-28 20:46:07.558000000 -0700
+SCENE2_RESULT=LIVE_TESTED
+=== end scene2 ===
