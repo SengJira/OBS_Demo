@@ -375,6 +375,67 @@
               }
             }
           ]
+        },
+        {
+          "name": "0.8 Read back demo-reader policy (IAM GetUserPolicy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-SDS-AUTH-TOKEN",
+                "value": "{{ui_token}}"
+              },
+              {
+                "key": "X-XSRF-TOKEN",
+                "value": "{{xsrf_token}}"
+              },
+              {
+                "key": "Cookie",
+                "value": "XSRF-TOKEN={{xsrf_token}}; ECSAuthToken={{ui_token}}"
+              },
+              {
+                "key": "x-emc-namespace",
+                "value": "{{namespace}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "url": {
+              "raw": "{{portal_url}}/iam",
+              "host": [
+                "{{portal_url}}"
+              ],
+              "path": [
+                "iam"
+              ],
+              "query": []
+            },
+            "description": "Verifies the grant from 0.7 \u2014 returns the JSON policy document attached to `demo-reader`. This is an **IAM user policy**, distinct from the bucket policy set by 2.1. Equivalent UI check: Portal \u2192 IAM \u2192 Users \u2192 demo-reader \u2192 Permissions.",
+            "body": {
+              "mode": "raw",
+              "raw": "Action=GetUserPolicy&UserName=demo-reader&PolicyName=demo-pm-read&Namespace={{namespace}}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test('status 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('policy document returned', function(){",
+                  "  var t = pm.response.text();",
+                  "  pm.expect(t).to.include('demo-pm-s3').and.to.include('GetObject');",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ],
       "description": "Creates the demo buckets, caches auth tokens, grants the least-privilege IAM policy."

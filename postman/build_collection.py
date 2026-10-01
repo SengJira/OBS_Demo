@@ -216,6 +216,26 @@ pm.test('iam policy applied', function(){
   pm.expect(j.isSuccess).to.be.true;
 });"""))
 
+    setup.append(req(
+        "0.8 Read back demo-reader policy (IAM GetUserPolicy)",
+        "POST", "{{portal_url}}/iam",
+        desc=("Verifies the grant from 0.7 — returns the JSON policy document "
+              "attached to `demo-reader`. This is an **IAM user policy**, "
+              "distinct from the bucket policy set by 2.1. Equivalent UI "
+              "check: Portal → IAM → Users → demo-reader → Permissions."),
+        headers=[
+            {"key": "X-SDS-AUTH-TOKEN", "value": "{{ui_token}}"},
+            {"key": "X-XSRF-TOKEN", "value": "{{xsrf_token}}"},
+            {"key": "Cookie", "value": "XSRF-TOKEN={{xsrf_token}}; ECSAuthToken={{ui_token}}"},
+            {"key": "x-emc-namespace", "value": "{{namespace}}"},
+            {"key": "Content-Type", "value": "application/x-www-form-urlencoded"}],
+        raw_body="Action=GetUserPolicy&UserName=demo-reader&PolicyName=demo-pm-read&Namespace={{namespace}}",
+        tests=T_200 + """
+pm.test('policy document returned', function(){
+  var t = pm.response.text();
+  pm.expect(t).to.include('demo-pm-s3').and.to.include('GetObject');
+});"""))
+
     items.append(folder("00 — Setup (run once)", setup,
         "Creates the demo buckets, caches auth tokens, grants the least-privilege IAM policy."))
 
